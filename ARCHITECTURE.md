@@ -108,6 +108,19 @@ These are enforced in code and covered by tests, not merely intended:
 
 ## Stack
 
+### Where it all runs
+
+`src/commands/classify.ts` is the seam that joins the layers: it reads the spec, calls the
+classifier, conditionally calls the proposer, and appends to the audit log. The CLI is a thin
+wrapper around it — argument parsing and provider construction only — so the pipeline can be
+tested end to end with an injected completer and no network.
+
+The command deliberately skips the proposer entirely for a regression rather than relying on
+`propose()` to refuse. The refusal is still there as a hard guarantee, but making the intent
+explicit at the call site means a reader does not have to trust a function two files away.
+
+## Stack
+
 | Concern | Choice | Rationale |
 |---|---|---|
 | Language | TypeScript on Node 22+ | Playwright is native here; trivial GitHub Actions support |
