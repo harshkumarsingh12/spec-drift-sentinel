@@ -220,6 +220,15 @@ npm run sentinel -- audit       # the decision log
 npm run sentinel -- help
 ```
 
+Dashboard and end-to-end tests live in `web/`:
+
+```bash
+cd web
+npm run dev                     # http://localhost:3000
+npm run test:e2e                # Playwright — builds and starts the app itself
+npm run test:e2e:report         # open the HTML report
+```
+
 **Exit codes are a contract**, because the CLI runs as a CI gate:
 
 | Code | Meaning |
@@ -289,7 +298,7 @@ Miss any one and the submission never reaches a scorer.
 ### Scored deliverables
 
 - [x] Specification / PRD with acceptance criteria — [`spec/PRD.md`](spec/PRD.md)
-- [ ] Playwright end-to-end tests, passing in CI, report uploaded as an artifact
+- [x] Playwright end-to-end tests — 18 specs, passing in CI, HTML report uploaded as an artifact
 - [x] Code-quality configuration — ESLint, enforced by a pre-commit hook and in CI
 - [ ] Clean, progressive commit history *(ongoing — commit continuously)*
 - [x] Task breakdown — [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md)

@@ -38,3 +38,38 @@ jobs:
 
       - name: Traceability matrix
         run: npm run sentinel -- trace
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      # Chromium only — cross-browser coverage is not what this project
+      # demonstrates, and a fast pipeline matters more here.
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install chromium --with-deps
+
+      # playwright.config.ts builds and starts the app itself.
+      - name: Run Playwright tests
+        working-directory: web
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7

@@ -54,7 +54,9 @@ export default function TimelinePage() {
               <span className="badge badge-muted mono">{entry.acId ?? 'no AC'}</span>
               <span className="small muted">{entry.kind.replace('_', ' ')}</span>
             </div>
-            <span className="small muted mono">{entry.timestamp}</span>
+            <span className="small muted mono" data-testid="timeline-timestamp">
+              {entry.timestamp}
+            </span>
           </div>
 
           <p className="small" style={{ margin: '10px 0 0' }}>
