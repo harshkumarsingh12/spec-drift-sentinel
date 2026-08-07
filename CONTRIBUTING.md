@@ -82,12 +82,21 @@ end-of-day dump scores badly. Commit every time something works, not when everyt
 Before you open a PR:
 
 - [ ] `npm test` passes locally
+- [ ] `npm run lint` is clean
 - [ ] `npm run typecheck` is clean
 - [ ] `npm run sentinel -- arch` passes (you haven't crossed an architecture boundary)
 - [ ] New behaviour has a test
 - [ ] If behaviour changed, `spec/PRD.md` changed too — the spec is the arbiter
 - [ ] Anything implementing a criterion carries a `@covers AC-n` comment
 - [ ] No secrets, no `.env`, no `dist/`, no `node_modules/`
+
+## Pre-commit hook
+
+`npm install` wires up a hook that runs ESLint and scans staged files for anything that looks
+like a live API key. It's fast — a few seconds.
+
+If it blocks you and you're certain it's wrong, `git commit --no-verify` skips it. Use that
+sparingly: CI runs the same lint, so you've only deferred the failure.
 
 ## House rules
 
