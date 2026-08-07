@@ -47,11 +47,13 @@ For example:
 Return exactly this JSON shape:
 
 {
-  "test_file": "path/to/test.spec.ts",
+  "testFile": "path/to/test.spec.ts",
   "patch": "unified diff containing the proposed Playwright test update",
-  "citing_ac": "AC-N"
+  "citingAc": "AC-N",
+  "explanation": "one or two sentences naming what changed and which part of the criterion requires it"
 }`;
 
+/** Kept so existing imports of the generic name keep working. */
 export const SYSTEM_PROMPT = PROPOSER_SYSTEM_PROMPT;
 
 export interface ProposeInput {
@@ -65,15 +67,18 @@ export interface ProposeInput {
   gitDiff?: string;
 }
 
-export interface Proposal {
-  diff: string | null;
-  explanation: string;
-}
-
 export interface ProposedDiffResult {
-  test_file: string;
+  testFile: string;
   patch: string;
-  citing_ac: string;
+  citingAc: string;
+  /**
+   * Why this edit follows from the criterion.
+   *
+   * Surfaced to the reviewer alongside the diff. The patch shows *what*
+   * changed; this is the model's account of *why*, which is the part a human
+   * has to agree with before ratifying.
+   */
+  explanation: string;
 }
 
 export interface ProposePlaywrightDiffParams {
@@ -85,19 +90,15 @@ export interface ProposePlaywrightDiffParams {
 }
 
 interface RawProposedDiffResult {
-  test_file?: unknown;
+  testFile?: unknown;
   patch?: unknown;
-  citing_ac?: unknown;
+  citingAc?: unknown;
+  explanation?: unknown;
 }
 
-function buildProposerMessages(
-  params: ProposePlaywrightDiffParams,
-): ChatMessage[] {
+function buildProposerMessages(params: ProposePlaywrightDiffParams): ChatMessage[] {
   return [
-    {
-      role: 'system',
-      content: PROPOSER_SYSTEM_PROMPT,
-    },
+    { role: 'system', content: PROPOSER_SYSTEM_PROMPT },
     {
       role: 'user',
       content: [
@@ -118,52 +119,16 @@ function buildProposerMessages(
         '',
         'Generate a minimal Playwright test update.',
         '',
-        `MANDATORY: the generated test must contain this top-level comment:`,
+        'MANDATORY: the generated test must contain this top-level comment:',
         `// Authorized by ${params.acId}`,
         '',
         'Return JSON only:',
         '{',
-        '  "test_file": "path/to/test.spec.ts",',
+        '  "testFile": "path/to/test.spec.ts",',
         '  "patch": "unified diff",',
-        `  "citing_ac": "${params.acId}"`,
+        `  "citingAc": "${params.acId}",`,
+        '  "explanation": "what changed and why the criterion requires it"',
         '}',
-      ].join('\n'),
-    },
-  ];
-}
-
-export function buildMessages(input: ProposeInput): ChatMessage[] {
-  return [
-    {
-      role: 'system',
-      content: PROPOSER_SYSTEM_PROMPT,
-    },
-    {
-      role: 'user',
-      content: [
-        '## Authorising Acceptance Criterion',
-        `### ${input.criterion.id}: ${input.criterion.title}`,
-        input.criterion.text,
-        '',
-        '## Why this was judged an intentional change',
-        input.verdict.reasoning,
-        '',
-        '## Failing test',
-        `File: ${input.verdict.failure.testFile}`,
-        `Test: ${input.verdict.failure.testName}`,
-        `Failure: ${input.verdict.failure.message}`,
-        '',
-        '## Current Playwright Test',
-        '```ts',
-        input.testSource.slice(0, 12000),
-        '```',
-        '',
-        '## Git Diff',
-        '```diff',
-        (input.gitDiff ?? '').slice(0, 12000),
-        '```',
-        '',
-        `MANDATORY generated-code comment: // Authorized by ${input.criterion.id}`,
       ].join('\n'),
     },
   ];
@@ -172,8 +137,8 @@ export function buildMessages(input: ProposeInput): ChatMessage[] {
 /**
  * Extract a JSON object from a model response.
  *
- * JSON mode should normally guarantee this, but this remains defensive for
- * compatibility with stubbed providers and older responses.
+ * Provider JSON mode should normally guarantee this, but stubbed providers and
+ * older models can still wrap output in fences or prose.
  */
 function extractProposalJson(content: string): unknown {
   const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(content);
@@ -183,87 +148,44 @@ function extractProposalJson(content: string): unknown {
   const end = candidate.lastIndexOf('}');
 
   if (start === -1 || end === -1 || end < start) {
-    throw new Error(
-      `No JSON object found in proposal response: ${content.slice(0, 200)}`,
-    );
+    throw new Error(`No JSON object found in proposal response: ${content.slice(0, 200)}`);
   }
 
   return JSON.parse(candidate.slice(start, end + 1));
 }
 
-/**
- * Legacy parser retained for existing callers/tests.
- */
-export function parseProposal(content: string): Proposal {
-  const parsed = extractProposalJson(content) as {
-    diff?: string;
-    explanation?: string;
-  };
-
-  const diff =
-    typeof parsed.diff === 'string' && parsed.diff.trim().length > 0
-      ? parsed.diff
-      : null;
-
-  return {
-    diff,
-    explanation:
-      typeof parsed.explanation === 'string' &&
-      parsed.explanation.trim().length > 0
-        ? parsed.explanation.trim()
-        : 'No explanation supplied.',
-  };
-}
-
-function parseProposedDiffResult(
-  content: string,
-  expectedAcId: string,
-): ProposedDiffResult {
+function parseProposedDiffResult(content: string, expectedAcId: string): ProposedDiffResult {
   const parsed = extractProposalJson(content) as RawProposedDiffResult;
 
-  const testFile =
-    typeof parsed.test_file === 'string'
-      ? parsed.test_file.trim()
-      : '';
-
-  const patch =
-    typeof parsed.patch === 'string'
-      ? parsed.patch
-      : '';
-
-  const citingAc =
-    typeof parsed.citing_ac === 'string'
-      ? parsed.citing_ac.trim()
-      : '';
+  const testFile = typeof parsed.testFile === 'string' ? parsed.testFile.trim() : '';
+  const patch = typeof parsed.patch === 'string' ? parsed.patch : '';
+  const citingAc = typeof parsed.citingAc === 'string' ? parsed.citingAc.trim() : '';
+  const explanation =
+    typeof parsed.explanation === 'string' && parsed.explanation.trim().length > 0
+      ? parsed.explanation.trim()
+      : 'No explanation supplied.';
 
   if (!testFile) {
-    throw new Error('Proposal response did not include test_file.');
+    throw new Error('Proposal response did not include testFile.');
   }
 
   if (citingAc !== expectedAcId) {
-    throw new Error(
-      `Proposal cited ${citingAc || 'no AC'} but expected ${expectedAcId}.`,
-    );
+    throw new Error(`Proposal cited ${citingAc || 'no AC'} but expected ${expectedAcId}.`);
   }
 
-  if (
-    patch.trim().length > 0 &&
-    !patch.includes(`// Authorized by ${expectedAcId}`)
-  ) {
+  // An empty patch is a legitimate answer — it means the criterion did not
+  // honestly justify a change. Only a real patch must carry its authorisation.
+  if (patch.trim().length > 0 && !patch.includes(`// Authorized by ${expectedAcId}`)) {
     throw new Error(
       `Proposal patch is missing mandatory comment "// Authorized by ${expectedAcId}".`,
     );
   }
 
-  return {
-    test_file: testFile,
-    patch,
-    citing_ac: citingAc,
-  };
+  return { testFile, patch, citingAc, explanation };
 }
 
 /**
- * Phase 3 Playwright test-diff generation entry point.
+ * Generate a candidate Playwright test diff.
  *
  * Networking is injected through CompleteFn so unit tests never require API
  * keys or live provider access.
@@ -273,32 +195,25 @@ export async function proposePlaywrightDiff(
   complete: CompleteFn,
 ): Promise<ProposedDiffResult> {
   if (!/^AC-\d+$/.test(params.acId)) {
-    throw new Error(
-      `Invalid authorising Acceptance Criterion ID: ${params.acId}`,
-    );
+    throw new Error(`Invalid authorising Acceptance Criterion ID: ${params.acId}`);
   }
 
   if (!params.acText.trim()) {
-    throw new Error(
-      `Cannot propose a Playwright change without text for ${params.acId}.`,
-    );
+    throw new Error(`Cannot propose a Playwright change without text for ${params.acId}.`);
   }
 
   const result = await complete(buildProposerMessages(params));
-
   return parseProposedDiffResult(result.content, params.acId);
 }
 
 /**
  * Attach a proposed diff to an existing Verdict.
  *
- * Refuses outright unless the classifier already determined that the change
- * is authorised by the exact Acceptance Criterion supplied here.
+ * Refuses outright unless the classifier already determined that the change is
+ * authorised by the exact Acceptance Criterion supplied here. A regression must
+ * never receive a proposed "fix", or the product's central guarantee is worthless.
  */
-export async function propose(
-  input: ProposeInput,
-  complete: CompleteFn,
-): Promise<Verdict> {
+export async function propose(input: ProposeInput, complete: CompleteFn): Promise<Verdict> {
   if (input.verdict.kind !== 'intentional_change') {
     throw new Error(
       `Refusing to propose a test change for a ${input.verdict.kind} verdict. ` +
@@ -315,12 +230,7 @@ export async function propose(
   const result = await proposePlaywrightDiff(
     {
       acId: input.criterion.id,
-      acText: [
-        input.criterion.title,
-        input.criterion.text,
-      ]
-        .filter(Boolean)
-        .join('\n'),
+      acText: [input.criterion.title, input.criterion.text].filter(Boolean).join('\n'),
       existingTestCode: input.testSource,
       gitDiff: input.gitDiff ?? '',
       testFile: input.verdict.failure.testFile,
@@ -330,12 +240,9 @@ export async function propose(
 
   return {
     ...input.verdict,
-    proposedDiff:
-      result.patch.trim().length > 0
-        ? result.patch
-        : null,
+    proposedDiff: result.patch.trim().length > 0 ? result.patch : null,
     reasoning:
       `${input.verdict.reasoning}\n\n` +
-      `Proposed Playwright update authorised by ${result.citing_ac}.`,
+      `Proposed update, authorised by ${result.citingAc}: ${result.explanation}`,
   };
 }
