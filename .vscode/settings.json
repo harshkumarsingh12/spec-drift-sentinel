@@ -1,0 +1,26 @@
+{
+  // Use the TypeScript from node_modules, not the one bundled with VS Code.
+  // Without this, opening a parent folder as the workspace root makes the editor
+  // fall back to its own TypeScript, which cannot see our @types/node — you get
+  // phantom "Cannot find name 'node:assert/strict'" errors while `npm run
+  // typecheck` passes cleanly.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.next": true
+  }
+}
