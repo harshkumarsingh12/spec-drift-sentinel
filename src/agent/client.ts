@@ -102,6 +102,7 @@ export async function executePromptWithFallback(
     if (!isRateLimitError(primaryError)) {
       throw new Error(
         `NVIDIA Build request failed without a rate-limit condition: ${getErrorMessage(primaryError)}`,
+        { cause: primaryError },
       );
     }
 
@@ -119,6 +120,7 @@ export async function executePromptWithFallback(
     } catch (fallbackError: unknown) {
       throw new Error(
         `Groq fallback request failed after NVIDIA Build was rate-limited: ${getErrorMessage(fallbackError)}`,
+        { cause: fallbackError },
       );
     }
   }
