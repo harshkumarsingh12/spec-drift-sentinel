@@ -56,6 +56,7 @@ for the acceptance criteria this project is judged against — by its own toolin
 
 ## Documents
 
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — setup, who owns what, branching, definition of done
 - [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md) — team brief: plan, work split, demo script
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — design and data model
 - [`AGENTS.md`](AGENTS.md) — rules for AI agents working in this repo

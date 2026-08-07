@@ -1,0 +1,25 @@
+# Ownership map — keeps four people out of each other's files.
+# Replace the placeholder handles with real GitHub usernames before the build window.
+#
+# Listing an owner here auto-requests their review on PRs touching those paths.
+# It does not block anyone: any team member can still approve and merge.
+
+# Shared contract — changing this affects both halves of the team.
+# Deliberately owned by everyone so nobody changes it quietly.
+/src/types.ts                       @harshkumarsingh12 @teammate-b @teammate-c @teammate-d
+
+# A — CI/CD and the deterministic analyzer
+/.github/                           @harshkumarsingh12
+/src/analyzers/architecture.ts      @harshkumarsingh12
+
+# B — agent layer
+/src/agent/                         @teammate-b
+/AGENTS_AND_SKILLS.md               @teammate-b
+
+# C — dashboard: inbox and diff viewer
+/web/                               @teammate-c
+
+# D — spec, docs, fixture app
+/spec/                              @teammate-d
+/fixture-app/                       @teammate-d
+/ARCHITECTURE.md                    @teammate-d
