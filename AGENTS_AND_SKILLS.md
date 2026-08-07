@@ -75,9 +75,21 @@ the verdict it is given, and treats an empty diff as "no honest update possible"
 
 **Source:** `src/agent/provider.ts`
 
-Both components take a `CompleteFn`, so tests inject a stub and never touch the network. In
-production the completer tries NVIDIA Build first and falls through to Groq on `429` or `5xx`.
-A malformed-request error is not retried — it would fail identically elsewhere.
+One client for the whole agent layer. Both components take a `CompleteFn`, so tests inject a
+stub and never touch the network.
+
+In production the completer tries NVIDIA Build first and falls through to Groq. It retries on
+anything except a `400`, because the providers hold different keys and serve different models —
+a `401` or `404` on one says nothing about the next. Only a malformed request fails identically
+everywhere.
+
+**Every request carries a timeout.** This is not theoretical: during setup NVIDIA accepted the
+connection, authenticated, and then never responded, while Groq answered in under half a second.
+Without a timeout the failover cannot fire, because the stalled call never returns. Tests cover
+this directly, including a stalled-then-fallthrough case.
+
+Requests default to JSON response mode, since both agents parse structured output — that turns
+a whole class of "the model wrapped it in prose" failures into a non-issue.
 
 With no key configured the deterministic commands (`arch`, `trace`, `audit`) still run
 normally; only classification and proposal require a provider.
