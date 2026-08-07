@@ -1,0 +1,23 @@
+{
+  "name": "spec-drift-sentinel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Detects spec drift, diagnoses regression vs intentional contract change, and proposes human-ratified test updates.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "sentinel": "./dist/src/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test \"dist/tests/**/*.test.js\"",
+    "sentinel": "node dist/src/cli.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

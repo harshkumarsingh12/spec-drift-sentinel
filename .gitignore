@@ -1,0 +1,25 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# secrets — never commit API keys
+.env
+.env.*
+!.env.example
+
+# generated at runtime
+.sentinel/
+audit.jsonl
+
+# playwright
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# editors / os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

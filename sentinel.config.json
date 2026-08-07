@@ -1,0 +1,16 @@
+{
+  "specFile": "spec/PRD.md",
+  "auditLog": ".sentinel/audit.jsonl",
+  "rules": [
+    {
+      "from": "src/analyzers/**",
+      "forbid": "src/agent/**",
+      "reason": "deterministic analysis must not depend on the probabilistic layer"
+    },
+    {
+      "from": "src/audit/**",
+      "forbid": "src/agent/**",
+      "reason": "the decision log must stay independent of how verdicts were produced"
+    }
+  ]
+}
