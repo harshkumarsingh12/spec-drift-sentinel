@@ -4,39 +4,65 @@ import type { ChatMessage, CompleteFn } from './provider.js';
 /**
  * Custom skill: `propose-playwright-test`.
  *
- * Drafts an updated test for a verdict that has already been classified as an
- * intentional contract change, citing the acceptance criterion that authorises it.
+ * Generates a candidate Playwright test update for an already-authorised
+ * intentional contract change.
  *
- * This only ever *proposes*. Nothing here writes to disk, commits, or touches CI.
- * The output is a patch a human reads, checks against the cited AC, and ratifies
- * in the dashboard. That approval step is the point of the product, not overhead.
+ * This skill NEVER writes files, commits changes, or heals CI automatically.
+ * It only proposes a patch for human ratification.
  */
+export const PROPOSER_SYSTEM_PROMPT = `You are propose-playwright-test, the Playwright test update skill for Spec Drift Sentinel.
 
-export const SYSTEM_PROMPT = `You are propose-playwright-test, a skill that rewrites a stale end-to-end test.
+You are given:
 
-The failure you are given has ALREADY been judged an intentional contract change, authorised by a specific acceptance criterion. Your job is to update the test so it asserts the behaviour the criterion now describes.
+1. A specific Acceptance Criterion that explicitly authorises a contract change.
+2. The current TypeScript Playwright test source.
+3. The git diff containing the implementation change.
 
-Rules:
-  - Assert what the acceptance criterion says, not what the implementation happens to do.
-    You are encoding intent, not transcribing current output.
-  - Change as little as possible. Touch only assertions the criterion actually moved.
-  - Never weaken a test to make it pass: no deleted assertions, no loosened matchers,
-    no try/catch swallowing, no .skip, no timeouts inflated to hide a race.
-  - Keep the existing style, imports and helpers of the surrounding file.
-  - If the criterion does not actually describe the observed behaviour, say so instead
-    of inventing an assertion.
+Your job is to synthesize a minimal, valid, executable TypeScript Playwright test update that aligns STRICTLY with the authorising Acceptance Criterion.
 
-Respond with a single JSON object and nothing else:
+NON-NEGOTIABLE RULES:
+
+- Only change behaviour explicitly authorised by the supplied AC-ID.
+- Do NOT infer requirements from the implementation alone.
+- Do NOT weaken the test simply to make it pass.
+- Do NOT delete unrelated assertions.
+- Do NOT add .skip, .fixme, arbitrary sleeps, excessive timeouts, try/catch swallowing, or loose matchers just to make CI green.
+- Preserve the existing Playwright coding style, imports, helpers, fixtures, selectors, and structure wherever possible.
+- Update assertions, selectors, request payloads, API response expectations, or interaction steps only when the Acceptance Criterion requires it.
+- The generated test code MUST include a top-level comment citing the authorising AC-ID in this exact form:
+
+// Authorized by AC-N
+
+For example:
+
+// Authorized by AC-1
+
+- The cited AC-ID MUST exactly match the Acceptance Criterion supplied to you.
+- If the Acceptance Criterion does not honestly justify changing the test, return an empty patch rather than inventing behaviour.
+- Return JSON only.
+- Do not return Markdown.
+- Do not wrap the JSON in code fences.
+- Do not include prose outside the JSON object.
+
+Return exactly this JSON shape:
+
 {
-  "diff": "unified diff updating the test file, or empty string if no honest update is possible",
-  "explanation": "one or two sentences on what changed and which part of the AC requires it"
+  "test_file": "path/to/test.spec.ts",
+  "patch": "unified diff containing the proposed Playwright test update",
+  "citing_ac": "AC-N"
 }`;
+
+export const SYSTEM_PROMPT = PROPOSER_SYSTEM_PROMPT;
 
 export interface ProposeInput {
   verdict: Verdict;
   criterion: AcceptanceCriterion;
+
   /** Current contents of the test file being updated. */
   testSource: string;
+
+  /** Git diff that introduced the authorised implementation change. */
+  gitDiff?: string;
 }
 
 export interface Proposal {
@@ -44,13 +70,78 @@ export interface Proposal {
   explanation: string;
 }
 
-export function buildMessages(input: ProposeInput): ChatMessage[] {
+export interface ProposedDiffResult {
+  test_file: string;
+  patch: string;
+  citing_ac: string;
+}
+
+export interface ProposePlaywrightDiffParams {
+  acId: string;
+  acText: string;
+  existingTestCode: string;
+  gitDiff: string;
+  testFile?: string;
+}
+
+interface RawProposedDiffResult {
+  test_file?: unknown;
+  patch?: unknown;
+  citing_ac?: unknown;
+}
+
+function buildProposerMessages(
+  params: ProposePlaywrightDiffParams,
+): ChatMessage[] {
   return [
-    { role: 'system', content: SYSTEM_PROMPT },
+    {
+      role: 'system',
+      content: PROPOSER_SYSTEM_PROMPT,
+    },
     {
       role: 'user',
       content: [
-        '## Authorising acceptance criterion',
+        '## Authorising Acceptance Criterion',
+        `AC-ID: ${params.acId}`,
+        params.acText,
+        '',
+        '## Existing Playwright Test',
+        `File: ${params.testFile ?? 'unknown'}`,
+        '```ts',
+        params.existingTestCode.slice(0, 12000),
+        '```',
+        '',
+        '## Git Diff',
+        '```diff',
+        params.gitDiff.slice(0, 12000),
+        '```',
+        '',
+        'Generate a minimal Playwright test update.',
+        '',
+        `MANDATORY: the generated test must contain this top-level comment:`,
+        `// Authorized by ${params.acId}`,
+        '',
+        'Return JSON only:',
+        '{',
+        '  "test_file": "path/to/test.spec.ts",',
+        '  "patch": "unified diff",',
+        `  "citing_ac": "${params.acId}"`,
+        '}',
+      ].join('\n'),
+    },
+  ];
+}
+
+export function buildMessages(input: ProposeInput): ChatMessage[] {
+  return [
+    {
+      role: 'system',
+      content: PROPOSER_SYSTEM_PROMPT,
+    },
+    {
+      role: 'user',
+      content: [
+        '## Authorising Acceptance Criterion',
         `### ${input.criterion.id}: ${input.criterion.title}`,
         input.criterion.text,
         '',
@@ -62,44 +153,147 @@ export function buildMessages(input: ProposeInput): ChatMessage[] {
         `Test: ${input.verdict.failure.testName}`,
         `Failure: ${input.verdict.failure.message}`,
         '',
-        '## Current test file',
+        '## Current Playwright Test',
+        '```ts',
+        input.testSource.slice(0, 12000),
         '```',
-        input.testSource.slice(0, 8000),
+        '',
+        '## Git Diff',
+        '```diff',
+        (input.gitDiff ?? '').slice(0, 12000),
         '```',
+        '',
+        `MANDATORY generated-code comment: // Authorized by ${input.criterion.id}`,
       ].join('\n'),
     },
   ];
 }
 
-export function parseProposal(content: string): Proposal {
+/**
+ * Extract a JSON object from a model response.
+ *
+ * JSON mode should normally guarantee this, but this remains defensive for
+ * compatibility with stubbed providers and older responses.
+ */
+function extractProposalJson(content: string): unknown {
   const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(content);
   const candidate = fenced?.[1] ?? content;
+
   const start = candidate.indexOf('{');
   const end = candidate.lastIndexOf('}');
+
   if (start === -1 || end === -1 || end < start) {
-    throw new Error(`No JSON object found in proposal response: ${content.slice(0, 200)}`);
+    throw new Error(
+      `No JSON object found in proposal response: ${content.slice(0, 200)}`,
+    );
   }
 
-  const parsed = JSON.parse(candidate.slice(start, end + 1)) as {
+  return JSON.parse(candidate.slice(start, end + 1));
+}
+
+/**
+ * Legacy parser retained for existing callers/tests.
+ */
+export function parseProposal(content: string): Proposal {
+  const parsed = extractProposalJson(content) as {
     diff?: string;
     explanation?: string;
   };
-  const diff = typeof parsed.diff === 'string' && parsed.diff.trim().length > 0 ? parsed.diff : null;
+
+  const diff =
+    typeof parsed.diff === 'string' && parsed.diff.trim().length > 0
+      ? parsed.diff
+      : null;
 
   return {
     diff,
     explanation:
-      typeof parsed.explanation === 'string' && parsed.explanation.trim().length > 0
+      typeof parsed.explanation === 'string' &&
+      parsed.explanation.trim().length > 0
         ? parsed.explanation.trim()
         : 'No explanation supplied.',
   };
 }
 
+function parseProposedDiffResult(
+  content: string,
+  expectedAcId: string,
+): ProposedDiffResult {
+  const parsed = extractProposalJson(content) as RawProposedDiffResult;
+
+  const testFile =
+    typeof parsed.test_file === 'string'
+      ? parsed.test_file.trim()
+      : '';
+
+  const patch =
+    typeof parsed.patch === 'string'
+      ? parsed.patch
+      : '';
+
+  const citingAc =
+    typeof parsed.citing_ac === 'string'
+      ? parsed.citing_ac.trim()
+      : '';
+
+  if (!testFile) {
+    throw new Error('Proposal response did not include test_file.');
+  }
+
+  if (citingAc !== expectedAcId) {
+    throw new Error(
+      `Proposal cited ${citingAc || 'no AC'} but expected ${expectedAcId}.`,
+    );
+  }
+
+  if (
+    patch.trim().length > 0 &&
+    !patch.includes(`// Authorized by ${expectedAcId}`)
+  ) {
+    throw new Error(
+      `Proposal patch is missing mandatory comment "// Authorized by ${expectedAcId}".`,
+    );
+  }
+
+  return {
+    test_file: testFile,
+    patch,
+    citing_ac: citingAc,
+  };
+}
+
 /**
- * Attach a proposed diff to a verdict.
+ * Phase 3 Playwright test-diff generation entry point.
  *
- * Refuses outright unless the verdict is an authorised intentional change — a
- * regression must never receive a proposed "fix", or the guarantee is worthless.
+ * Networking is injected through CompleteFn so unit tests never require API
+ * keys or live provider access.
+ */
+export async function proposePlaywrightDiff(
+  params: ProposePlaywrightDiffParams,
+  complete: CompleteFn,
+): Promise<ProposedDiffResult> {
+  if (!/^AC-\d+$/.test(params.acId)) {
+    throw new Error(
+      `Invalid authorising Acceptance Criterion ID: ${params.acId}`,
+    );
+  }
+
+  if (!params.acText.trim()) {
+    throw new Error(
+      `Cannot propose a Playwright change without text for ${params.acId}.`,
+    );
+  }
+
+  const result = await complete(buildProposerMessages(params));
+
+  return parseProposedDiffResult(result.content, params.acId);
+}
+
+/**
+ * Attach a proposed diff to an existing Verdict.
+ *
+ * Refuses outright unless the classifier already determined that the change
+ * is authorised by the exact Acceptance Criterion supplied here.
  */
 export async function propose(
   input: ProposeInput,
@@ -111,18 +305,37 @@ export async function propose(
         'Only changes authorised by an acceptance criterion may be proposed.',
     );
   }
+
   if (input.verdict.acId !== input.criterion.id) {
     throw new Error(
       `Verdict cites ${input.verdict.acId ?? 'no AC'} but was given ${input.criterion.id}.`,
     );
   }
 
-  const result = await complete(buildMessages(input));
-  const proposal = parseProposal(result.content);
+  const result = await proposePlaywrightDiff(
+    {
+      acId: input.criterion.id,
+      acText: [
+        input.criterion.title,
+        input.criterion.text,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      existingTestCode: input.testSource,
+      gitDiff: input.gitDiff ?? '',
+      testFile: input.verdict.failure.testFile,
+    },
+    complete,
+  );
 
   return {
     ...input.verdict,
-    proposedDiff: proposal.diff,
-    reasoning: `${input.verdict.reasoning}\n\nProposed update: ${proposal.explanation}`,
+    proposedDiff:
+      result.patch.trim().length > 0
+        ? result.patch
+        : null,
+    reasoning:
+      `${input.verdict.reasoning}\n\n` +
+      `Proposed Playwright update authorised by ${result.citing_ac}.`,
   };
 }
