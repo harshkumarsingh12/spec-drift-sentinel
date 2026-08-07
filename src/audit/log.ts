@@ -12,6 +12,14 @@ import type { AuditEntry, HumanDecision, Verdict } from '../types.js';
  */
 
 export const DEFAULT_LOG_PATH = '.sentinel/audit.jsonl';
+export const FULL_AUDIT_LOG_PATH = 'audit_log.jsonl';
+
+export type AuditHumanDecision = 'PENDING' | 'RATIFIED' | 'REJECTED';
+
+export interface AuditLogRecord extends Verdict {
+  human_decision: AuditHumanDecision;
+  logged_at: string;
+}
 
 /** Short, stable fingerprint of a proposed diff. */
 export function hashDiff(diff: string | null): string | null {
@@ -66,4 +74,36 @@ export function currentDecision(
   const history = historyFor(verdictId, logPath);
   const last = history[history.length - 1];
   return last?.humanDecision ?? 'pending';
+}
+
+/**
+ * Append a complete Verdict snapshot to the Phase-4 audit log.
+ *
+ * This complements the compact AuditEntry log above rather than replacing it.
+ * The optional log path follows the same pattern as the existing audit helpers
+ * and keeps the function deterministic and testable.
+ */
+export function appendAuditLog(
+  verdict: Verdict,
+  humanDecision: AuditHumanDecision = 'PENDING',
+  logPath: string = FULL_AUDIT_LOG_PATH,
+): void {
+  const record: AuditLogRecord = {
+    ...verdict,
+    human_decision: humanDecision,
+    logged_at: new Date().toISOString(),
+  };
+
+  mkdirSync(dirname(logPath), { recursive: true });
+  appendFileSync(logPath, `${JSON.stringify(record)}\n`, 'utf8');
+}
+
+/** Read all complete Verdict snapshots from the Phase-4 audit log. */
+export function readAuditLogs(logPath: string = FULL_AUDIT_LOG_PATH): AuditLogRecord[] {
+  if (!existsSync(logPath)) return [];
+
+  return readFileSync(logPath, 'utf8')
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line) as AuditLogRecord);
 }

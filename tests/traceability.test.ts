@@ -8,6 +8,8 @@ import {
   buildTraceability,
   coveredIds,
   parseAcceptanceCriteria,
+  parseAcceptanceCriteriaFromText,
+  parseTraceabilityMap,
 } from '../src/analyzers/traceability.js';
 
 /** @covers AC-3 */
@@ -44,6 +46,19 @@ describe('parseAcceptanceCriteria', () => {
 
   test('returns nothing when the spec declares no criteria', () => {
     assert.deepEqual(parseAcceptanceCriteria(writeSpec('# PRD\n\nSome prose.\n')), []);
+  });
+
+  test('parses bullet-form acceptance criteria without creating a second parser', () => {
+    const criteria = parseAcceptanceCriteriaFromText(
+      ['# PRD', '', '- AC-1: Users can log in', '- AC-2: Users can log out'].join('\n'),
+      'spec/PRD.md',
+    );
+
+    assert.equal(criteria.length, 2);
+    assert.equal(criteria[0]?.id, 'AC-1');
+    assert.equal(criteria[0]?.text, 'Users can log in');
+    assert.equal(criteria[1]?.id, 'AC-2');
+    assert.equal(criteria[1]?.text, 'Users can log out');
   });
 });
 
@@ -98,5 +113,51 @@ describe('affectedCriteria', () => {
       { acId: 'AC-1', title: 'One', coveredBy: ['src/a.ts'], testFiles: [], status: 'untested' as const },
     ];
     assert.equal(affectedCriteria(['src\\a.ts'], rows).length, 1);
+  });
+});
+
+describe('parseTraceabilityMap', () => {
+  test('maps every AC to the fixture target and Playwright test', () => {
+    const path = writeSpec(
+      [
+        '### AC-1: Login succeeds',
+        'Valid users can log in.',
+        '',
+        '### AC-2: Logout succeeds',
+        'Authenticated users can log out.',
+      ].join('\n'),
+    );
+
+    const entries = parseTraceabilityMap(path);
+
+    assert.deepEqual(entries, [
+      {
+        ac_id: 'AC-1',
+        description: 'Valid users can log in.',
+        target_files: ['src/fixture-app/server.ts'],
+        associated_tests: ['tests/e2e/fixture.spec.ts'],
+      },
+      {
+        ac_id: 'AC-2',
+        description: 'Authenticated users can log out.',
+        target_files: ['src/fixture-app/server.ts'],
+        associated_tests: ['tests/e2e/fixture.spec.ts'],
+      },
+    ]);
+  });
+
+  test('supports bullet-form AC declarations', () => {
+    const path = writeSpec('- AC-7: Checkout returns 201\n');
+
+    const entries = parseTraceabilityMap(path);
+
+    assert.deepEqual(entries, [
+      {
+        ac_id: 'AC-7',
+        description: 'Checkout returns 201',
+        target_files: ['src/fixture-app/server.ts'],
+        associated_tests: ['tests/e2e/fixture.spec.ts'],
+      },
+    ]);
   });
 });
