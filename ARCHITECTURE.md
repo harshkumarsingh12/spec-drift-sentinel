@@ -110,7 +110,7 @@ These are enforced in code and covered by tests, not merely intended:
 
 | Concern | Choice | Rationale |
 |---|---|---|
-| Language | TypeScript on Node 20+ | Playwright is native here; trivial GitHub Actions support |
+| Language | TypeScript on Node 22+ | Playwright is native here; trivial GitHub Actions support |
 | Tests | `node:test` | Built in — no runner dependency, fast CI |
 | E2E | Playwright | Tests the dashboard; also the class of test the tool reasons about |
 | Dashboard | Next.js + React | The ratification UI; short hop for Compose developers |
