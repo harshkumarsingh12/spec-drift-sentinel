@@ -2,6 +2,11 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# next.js
+.next/
+next-env.d.ts
+out/
+
 # secrets — never commit API keys
 .env
 .env.*
