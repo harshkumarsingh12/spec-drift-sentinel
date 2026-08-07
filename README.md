@@ -218,7 +218,16 @@ npm run sentinel -- trace       # acceptance criterion → code → test matrix
 npm run sentinel -- trace --strict   # …and fail if any criterion is uncovered
 npm run sentinel -- audit       # the decision log
 npm run sentinel -- help
+
+# diagnose a failing test against the spec (needs a provider key)
+npx playwright test 2>&1 | npm run sentinel -- classify --propose
+npm run sentinel -- classify --failures failures.txt --propose
 ```
+
+`classify` is the whole pipeline in one command: it reads the acceptance criteria,
+takes a git diff and a test-failure log, decides regression vs. authorised change,
+optionally drafts a test update, and records the decision in the audit log. It never
+writes to a test file — the proposal goes to the dashboard for a human to ratify.
 
 Dashboard and end-to-end tests live in `web/`:
 
@@ -236,6 +245,10 @@ npm run test:e2e:report         # open the HTML report
 | `0` | Clean |
 | `1` | Violations or drift found — fail the build |
 | `2` | Bad usage or missing configuration |
+
+`classify` returns `1` for both verdict kinds. A regression is obviously not clean, and
+an authorised change still needs a human to ratify it before the build can be green —
+nothing has been applied yet.
 
 ## Project structure
 
@@ -311,8 +324,8 @@ Miss any one and the submission never reaches a scorer.
 - [x] Deterministic analyzer working end to end
 - [x] Append-only audit log
 - [ ] Fixture app + its Playwright tests running in CI
-- [ ] Traceability map wired to real diffs
-- [ ] Classifier producing verdicts on live failures
+- [x] Classifier producing verdicts from real Playwright output — `sentinel classify`
+- [x] Proposer drafting test updates, recorded but never applied
 - [ ] Dashboard: drift inbox
 - [ ] Dashboard: diff viewer with approve / reject
 - [ ] Dashboard: traceability matrix
