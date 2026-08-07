@@ -8,10 +8,11 @@ nobody's work gets clobbered. Read it once before your first commit.
 ```bash
 git clone https://github.com/harshkumarsingh12/spec-drift-sentinel.git
 cd spec-drift-sentinel
-npm install
-npm test          # should be green before you change anything
+npm install              # also creates .env for you from the template
+npm test                 # should be green before you change anything
 
-cp .env.example .env   # then paste in your own keys
+# paste your own keys into .env, then:
+npm run check:providers  # confirms both providers actually respond
 ```
 
 **Node 22 or newer is required** — `node --test` needs glob support that Node 20 lacks.
