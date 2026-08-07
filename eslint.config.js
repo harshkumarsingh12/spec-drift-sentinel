@@ -7,7 +7,14 @@ import tseslint from 'typescript-eslint';
  */
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'web/.next/**', 'coverage/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      // Next.js build output and the type shim it regenerates on every build.
+      'web/.next/**',
+      'web/next-env.d.ts',
+    ],
   },
 
   js.configs.recommended,
