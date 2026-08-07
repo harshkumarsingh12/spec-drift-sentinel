@@ -11,13 +11,28 @@ import { collectSourceFiles } from './architecture.js';
  *   ### AC-3: Refunds under the auto-approve limit skip human review
  *   The system must ...
  *
+ * They may also be declared as bullet points:
+ *
+ *   - AC-3: Refunds under the auto-approve limit skip human review
+ *
  * Code and tests claim coverage with a `@covers AC-3` annotation in a comment.
  * That annotation is the only link between spec and implementation, which keeps
  * the mapping explicit and greppable rather than inferred.
  */
 
 const AC_HEADING = /^#{2,4}\s*(AC-\d+)\s*[::-]?\s*(.*)$/;
+const AC_BULLET = /^\s*[-*+]\s+(AC-\d+)\s*[::-]?\s*(.*)$/;
 const COVERS_ANNOTATION = /@covers\s+(AC-\d+)/g;
+
+const DEFAULT_TRACEABILITY_TARGET = 'src/fixture-app/server.ts';
+const DEFAULT_TRACEABILITY_TEST = 'tests/e2e/fixture.spec.ts';
+
+export interface TraceabilityEntry {
+  ac_id: string;
+  description: string;
+  target_files: string[];
+  associated_tests: string[];
+}
 
 /**
  * Parse acceptance criteria out of PRD markdown already in memory.
@@ -36,21 +51,27 @@ export function parseAcceptanceCriteriaFromText(
   const criteria: AcceptanceCriterion[] = [];
 
   lines.forEach((line, index) => {
-    const match = AC_HEADING.exec(line);
+    const headingMatch = AC_HEADING.exec(line);
+    const bulletMatch = AC_BULLET.exec(line);
+    const match = headingMatch ?? bulletMatch;
+
     if (!match?.[1]) return;
 
-    // Body runs until the next heading of any level.
     const body: string[] = [];
-    for (let i = index + 1; i < lines.length; i++) {
-      const next = lines[i] ?? '';
-      if (next.startsWith('#')) break;
-      body.push(next);
+
+    if (headingMatch) {
+      // Heading bodies run until the next heading or explicit AC bullet.
+      for (let i = index + 1; i < lines.length; i++) {
+        const next = lines[i] ?? '';
+        if (next.startsWith('#') || AC_BULLET.test(next)) break;
+        body.push(next);
+      }
     }
 
     criteria.push({
       id: match[1],
       title: (match[2] ?? '').trim(),
-      text: body.join('\n').trim(),
+      text: headingMatch ? body.join('\n').trim() : (match[2] ?? '').trim(),
       sourceFile,
       line: index + 1,
     });
@@ -126,4 +147,23 @@ export function affectedCriteria(
     (row) =>
       row.coveredBy.some((f) => changed.has(f)) || row.testFiles.some((f) => changed.has(f)),
   );
+}
+
+/**
+ * Lightweight fixture traceability map required by the hackathon demo.
+ *
+ * This intentionally remains separate from `buildTraceability`, which performs
+ * the repository-wide @covers analysis. A temporary or external PRD containing
+ * AC-1 must not accidentally inherit unrelated AC-1 annotations elsewhere in
+ * the repository.
+ */
+export function parseTraceabilityMap(
+  prdPath: string = resolve(process.cwd(), 'spec', 'PRD.md'),
+): TraceabilityEntry[] {
+  return parseAcceptanceCriteria(prdPath).map((ac) => ({
+    ac_id: ac.id,
+    description: ac.text || ac.title,
+    target_files: [DEFAULT_TRACEABILITY_TARGET],
+    associated_tests: [DEFAULT_TRACEABILITY_TEST],
+  }));
 }
