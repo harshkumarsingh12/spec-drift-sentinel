@@ -209,6 +209,8 @@ each person's keys stay on their own machine.
 npm test                        # build, then run the unit tests
 npm run typecheck               # type-check without emitting
 npm run build                   # compile to dist/
+npm run lint                    # ESLint
+npm run lint:fix                # ESLint, fixing what it can
 npm run check:providers         # verify both LLM providers respond
 
 npm run sentinel -- arch        # dependency rules — deterministic, no API key
@@ -288,7 +290,7 @@ Miss any one and the submission never reaches a scorer.
 
 - [x] Specification / PRD with acceptance criteria — [`spec/PRD.md`](spec/PRD.md)
 - [ ] Playwright end-to-end tests, passing in CI, report uploaded as an artifact
-- [ ] Code-quality configuration (linter / static analysis, ideally pre-commit)
+- [x] Code-quality configuration — ESLint, enforced by a pre-commit hook and in CI
 - [ ] Clean, progressive commit history *(ongoing — commit continuously)*
 - [x] Task breakdown — [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md)
 - [ ] Tagged release with semantic versioning
