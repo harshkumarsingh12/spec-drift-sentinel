@@ -7,6 +7,7 @@ import type {
   VerdictKind,
 } from '../types.js';
 import type { ChatMessage, CompleteFn } from './provider.js';
+import { parseAcceptanceCriteriaFromText } from '../analyzers/traceability.js';
 
 /**
  * Custom agent: `drift-classifier`.
@@ -80,6 +81,8 @@ export interface ClassifyDriftParams {
   prdContent: string;
   gitDiff: string;
   testFailureLog: string;
+  /** Where the PRD came from, recorded on each criterion so citations resolve. */
+  specFile?: string;
 }
 
 interface RawVerdict {
@@ -201,56 +204,50 @@ export function normaliseVerdict(
   };
 }
 
-const INLINE_AC_HEADING = /^#{2,4}\s*(AC-\d+)\s*[::-]?\s*(.*)$/;
+/**
+ * Matches a Playwright failure header, e.g.
+ *
+ *   1) [chromium] › e2e/checkout.spec.ts:18:7 › checkout › applies free shipping
+ *
+ * The leading index and browser project are both optional so this also works on
+ * `--reporter=line` output and on a single pasted failure.
+ */
+const PLAYWRIGHT_FAILURE =
+  /(?:\d+\)\s*)?(?:\[[^\]]+\]\s*›\s*)?([^\s›]+\.(?:spec|test)\.[cm]?[jt]sx?):\d+:\d+\s*›\s*(.+)/;
+
+/** First line that looks like an assertion failure, used as the message. */
+const FAILURE_MESSAGE = /^\s*(Error:|AssertionError:|Timeout.*exceeded).*$/m;
 
 /**
- * Parse acceptance criteria from raw PRD markdown.
+ * Pull the real test file and name out of Playwright output.
  *
- * This mirrors the repository's existing AC heading convention:
- *   ### AC-3: Some requirement
+ * These values end up in the audit log and on the dashboard, so inventing them
+ * is not harmless — a reviewer needs to know which test broke. When the log
+ * genuinely cannot be parsed we say so plainly rather than fabricating a
+ * plausible-looking file name.
  */
-function criteriaFromPrdContent(
-  prdContent: string,
-): AcceptanceCriterion[] {
-  const lines = prdContent.split('\n');
-  const criteria: AcceptanceCriterion[] = [];
+export function parseTestFailure(testFailureLog: string): TestFailure {
+  const header = PLAYWRIGHT_FAILURE.exec(testFailureLog);
+  const message = FAILURE_MESSAGE.exec(testFailureLog)?.[0]?.trim();
 
-  lines.forEach((line, index) => {
-    const match = INLINE_AC_HEADING.exec(line);
+  if (!header?.[1] || !header[2]) {
+    return {
+      testFile: '(unparsed)',
+      testName: '(unparsed)',
+      message: message ?? testFailureLog.trim().slice(0, 2000),
+    };
+  }
 
-    if (!match?.[1]) {
-      return;
-    }
+  // The trail is "suite › nested suite › test name"; the test name is the last.
+  const segments = header[2]
+    .split('›')
+    .map((part) => part.trim())
+    .filter(Boolean);
 
-    const body: string[] = [];
-
-    for (let i = index + 1; i < lines.length; i += 1) {
-      const next = lines[i] ?? '';
-
-      if (next.startsWith('#')) {
-        break;
-      }
-
-      body.push(next);
-    }
-
-    criteria.push({
-      id: match[1],
-      title: (match[2] ?? '').trim(),
-      text: body.join('\n').trim(),
-      sourceFile: 'spec/PRD.md',
-      line: index + 1,
-    });
-  });
-
-  return criteria;
-}
-
-function failureFromLog(testFailureLog: string): TestFailure {
   return {
-    testFile: 'unknown',
-    testName: 'Playwright E2E failure',
-    message: testFailureLog,
+    testFile: header[1],
+    testName: segments[segments.length - 1] ?? header[2].trim(),
+    message: message ?? testFailureLog.trim().slice(0, 2000),
   };
 }
 
@@ -311,9 +308,12 @@ export async function classifyDrift(
 ): Promise<Verdict> {
   return classify(
     {
-      criteria: criteriaFromPrdContent(params.prdContent),
+      criteria: parseAcceptanceCriteriaFromText(
+        params.prdContent,
+        params.specFile ?? 'spec/PRD.md',
+      ),
       diff: params.gitDiff,
-      failure: failureFromLog(params.testFailureLog),
+      failure: parseTestFailure(params.testFailureLog),
     },
     complete,
   );

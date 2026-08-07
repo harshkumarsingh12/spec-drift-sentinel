@@ -19,9 +19,20 @@ import { collectSourceFiles } from './architecture.js';
 const AC_HEADING = /^#{2,4}\s*(AC-\d+)\s*[::-]?\s*(.*)$/;
 const COVERS_ANNOTATION = /@covers\s+(AC-\d+)/g;
 
-/** Parse acceptance criteria out of a PRD markdown file. */
-export function parseAcceptanceCriteria(prdPath: string): AcceptanceCriterion[] {
-  const lines = readFileSync(prdPath, 'utf8').split('\n');
+/**
+ * Parse acceptance criteria out of PRD markdown already in memory.
+ *
+ * This is the single implementation. Callers holding a path use
+ * `parseAcceptanceCriteria`; callers holding raw content (the classifier, which
+ * receives PRD text rather than reading the disk) use this directly. Two copies
+ * of this parser would drift, and the AC id is the thing the whole product
+ * hinges on.
+ */
+export function parseAcceptanceCriteriaFromText(
+  content: string,
+  sourceFile: string,
+): AcceptanceCriterion[] {
+  const lines = content.split('\n');
   const criteria: AcceptanceCriterion[] = [];
 
   lines.forEach((line, index) => {
@@ -40,12 +51,17 @@ export function parseAcceptanceCriteria(prdPath: string): AcceptanceCriterion[] 
       id: match[1],
       title: (match[2] ?? '').trim(),
       text: body.join('\n').trim(),
-      sourceFile: prdPath,
+      sourceFile,
       line: index + 1,
     });
   });
 
   return criteria;
+}
+
+/** Parse acceptance criteria out of a PRD markdown file. */
+export function parseAcceptanceCriteria(prdPath: string): AcceptanceCriterion[] {
+  return parseAcceptanceCriteriaFromText(readFileSync(prdPath, 'utf8'), prdPath);
 }
 
 /** Every `@covers AC-n` annotation found in a file. */
