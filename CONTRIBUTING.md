@@ -8,10 +8,11 @@ nobody's work gets clobbered. Read it once before your first commit.
 ```bash
 git clone https://github.com/harshkumarsingh12/spec-drift-sentinel.git
 cd spec-drift-sentinel
-npm install
-npm test          # should be green before you change anything
+npm install              # also creates .env for you from the template
+npm test                 # should be green before you change anything
 
-cp .env.example .env   # then paste in your own keys
+# paste your own keys into .env, then:
+npm run check:providers  # confirms both providers actually respond
 ```
 
 **Node 22 or newer is required** — `node --test` needs glob support that Node 20 lacks.
@@ -81,12 +82,21 @@ end-of-day dump scores badly. Commit every time something works, not when everyt
 Before you open a PR:
 
 - [ ] `npm test` passes locally
+- [ ] `npm run lint` is clean
 - [ ] `npm run typecheck` is clean
 - [ ] `npm run sentinel -- arch` passes (you haven't crossed an architecture boundary)
 - [ ] New behaviour has a test
 - [ ] If behaviour changed, `spec/PRD.md` changed too — the spec is the arbiter
 - [ ] Anything implementing a criterion carries a `@covers AC-n` comment
 - [ ] No secrets, no `.env`, no `dist/`, no `node_modules/`
+
+## Pre-commit hook
+
+`npm install` wires up a hook that runs ESLint and scans staged files for anything that looks
+like a live API key. It's fast — a few seconds.
+
+If it blocks you and you're certain it's wrong, `git commit --no-verify` skips it. Use that
+sparingly: CI runs the same lint, so you've only deferred the failure.
 
 ## House rules
 

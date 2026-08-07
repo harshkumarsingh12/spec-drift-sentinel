@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Runs before every commit. Two checks, both fast.
+#
+# To skip in a genuine emergency:  git commit --no-verify
+# Use that sparingly — CI runs the same lint and will catch it anyway.
+
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+# 1. Secret guard.
+#
+# Matches a real key, not the "nvapi-..." placeholders in .env.example, by
+# requiring a long run of key characters. .env is gitignored, but a key pasted
+# into source, a test fixture or a markdown file would otherwise sail through.
+if echo "$staged" | xargs grep -lE '(nvapi-[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9]{20,}|sk-or-v1-[A-Za-z0-9]{20,})' 2>/dev/null | grep -q .; then
+  echo ""
+  echo "BLOCKED: what looks like a live API key is staged in:"
+  echo "$staged" | xargs grep -lE '(nvapi-[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9]{20,}|sk-or-v1-[A-Za-z0-9]{20,})' 2>/dev/null | sed 's/^/  /'
+  echo ""
+  echo "Move it to .env (gitignored). If it has already been pushed anywhere,"
+  echo "regenerate it — a key in git history is a leaked key."
+  echo ""
+  exit 1
+fi
+
+# 2. Lint.
+npm run lint

@@ -183,18 +183,23 @@ so neither half of the team blocks the other.
 ```bash
 git clone https://github.com/harshkumarsingh12/spec-drift-sentinel.git
 cd spec-drift-sentinel
-npm install
-npm test                # should be green before you change anything
+npm install               # also creates .env for you from the template
+npm test                  # should be green before you change anything
 
-cp .env.example .env    # then paste in your own keys
+# paste your own keys into .env, then:
+npm run check:providers   # confirms both providers actually respond
 ```
+
+`.env` is created automatically on install and is gitignored — it never gets committed, so
+each person's keys stay on their own machine.
 
 ### Setup checklist
 
 - [ ] `node --version` reports 22 or higher
 - [ ] `npm install` completed without errors
 - [ ] `npm test` is green — 47 tests passing
-- [ ] `.env` created from `.env.example` and populated with **your own** keys
+- [ ] `.env` populated with **your own** keys
+- [ ] `npm run check:providers` reports 2 working
 - [ ] `npm run sentinel -- arch` runs and passes
 - [ ] You've read [`CONTRIBUTING.md`](CONTRIBUTING.md) and know which paths you own
 
@@ -204,6 +209,9 @@ cp .env.example .env    # then paste in your own keys
 npm test                        # build, then run the unit tests
 npm run typecheck               # type-check without emitting
 npm run build                   # compile to dist/
+npm run lint                    # ESLint
+npm run lint:fix                # ESLint, fixing what it can
+npm run check:providers         # verify both LLM providers respond
 
 npm run sentinel -- arch        # dependency rules — deterministic, no API key
 npm run sentinel -- trace       # acceptance criterion → code → test matrix
@@ -282,7 +290,7 @@ Miss any one and the submission never reaches a scorer.
 
 - [x] Specification / PRD with acceptance criteria — [`spec/PRD.md`](spec/PRD.md)
 - [ ] Playwright end-to-end tests, passing in CI, report uploaded as an artifact
-- [ ] Code-quality configuration (linter / static analysis, ideally pre-commit)
+- [x] Code-quality configuration — ESLint, enforced by a pre-commit hook and in CI
 - [ ] Clean, progressive commit history *(ongoing — commit continuously)*
 - [x] Task breakdown — [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md)
 - [ ] Tagged release with semantic versioning
