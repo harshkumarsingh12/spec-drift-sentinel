@@ -14,7 +14,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test \"dist/tests/**/*.test.js\"",
-    "sentinel": "node dist/src/cli.js"
+    "sentinel": "node dist/src/cli.js",
+    "check:providers": "node --env-file-if-exists=.env scripts/check-providers.mjs",
+    "postinstall": "node scripts/ensure-env.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
