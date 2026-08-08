@@ -74,8 +74,8 @@ ratifying identity is recorded in the audit log.
 
 ### AC-6: The tool reports drift without an LLM available
 
-With no provider key configured, the deterministic checks (`arch`, `trace`, `audit`) must
-still run and report correctly. Only classification and proposal require a provider, and
+With no provider key configured, the deterministic checks (`arch`, `trace`, `audit`, `diff`)
+must still run and report correctly. Only classification and proposal require a provider, and
 their absence must produce a clear message naming the environment variables to set.
 
 ---
