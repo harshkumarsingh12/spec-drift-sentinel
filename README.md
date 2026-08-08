@@ -363,7 +363,7 @@ Miss any one and the submission never reaches a scorer.
 - [x] Code-quality configuration — ESLint, enforced by a pre-commit hook and in CI
 - [ ] Clean, progressive commit history *(ongoing — commit continuously)*
 - [x] Task breakdown — [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md)
-- [ ] Tagged release with semantic versioning
+- [x] Tagged release with semantic versioning — `v1.0.0`, published automatically on tag push
 
 ### Build checklist
 
@@ -383,7 +383,7 @@ Miss any one and the submission never reaches a scorer.
 - [x] Dashboard: audit timeline built out (reads every real row, oldest to newest)
 - [ ] `sentinel diff` — git diff → affected criteria
 - [ ] Fix the `@covers` false positive (matches ids inside string literals)
-- [ ] Tag `v1.0.0`
+- [x] Tag `v1.0.0` — triggers `deploy` + `release` in CI (see Deployment above)
 - [ ] ~3 minute demo video recorded
 
 ### Definition of done — before opening a PR
