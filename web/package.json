@@ -1,27 +1,30 @@
 {
-  "name": "spec-drift-sentinel-web",
+  "name": "spec-drift-sentinel",
   "version": "0.1.0",
   "private": true,
-  "description": "Ratification dashboard for Spec Drift Sentinel.",
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report"
+  "description": "Detects spec drift, diagnoses regression vs intentional contract change, and proposes human-ratified test updates.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
   },
-  "dependencies": {
-    "next": "^15.1.3",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+  "bin": {
+    "sentinel": "./dist/src/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "npm run build && node --test \"dist/tests/**/*.test.js\"",
+    "sentinel": "node dist/src/cli.js",
+    "check:providers": "node --env-file-if-exists=.env scripts/check-providers.mjs",
+    "postinstall": "node scripts/ensure-env.mjs && node scripts/setup-hooks.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.2",
-    "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2",
-    "typescript": "^5.7.2"
+    "eslint": "^10.8.0",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.66.0"
   }
 }
