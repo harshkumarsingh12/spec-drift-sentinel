@@ -239,14 +239,22 @@ export function parseTestFailure(testFailureLog: string): TestFailure {
   }
 
   // The trail is "suite › nested suite › test name"; the test name is the last.
+  // Playwright appends a duration — "applies free shipping (42ms)" — which is
+  // noise in an audit record, so strip it.
   const segments = header[2]
     .split('›')
     .map((part) => part.trim())
     .filter(Boolean);
 
+  const testName = (segments[segments.length - 1] ?? header[2].trim())
+    .replace(/\s*\(\d+(?:\.\d+)?m?s\)\s*$/, '')
+    .trim();
+
   return {
-    testFile: header[1],
-    testName: segments[segments.length - 1] ?? header[2].trim(),
+    // Playwright reports Windows paths with backslashes. Normalise, or nothing
+    // downstream can resolve the file — not the proposer, not the dashboard.
+    testFile: header[1].split('\\').join('/'),
+    testName,
     message: message ?? testFailureLog.trim().slice(0, 2000),
   };
 }

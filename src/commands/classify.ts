@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { classifyDrift } from '../agent/classifier.js';
 import { propose } from '../agent/proposer.js';
 import type { CompleteFn } from '../agent/provider.js';
+import { collectSourceFiles } from '../analyzers/architecture.js';
 import { parseAcceptanceCriteriaFromText } from '../analyzers/traceability.js';
 import { appendEntry, entryFromVerdict } from '../audit/log.js';
 import type { Verdict } from '../types.js';
@@ -37,14 +38,47 @@ export interface ClassifyOutcome {
 /**
  * Load the test file a proposal would edit.
  *
- * Returns null when the path is unknown or missing — the classifier records
- * '(unparsed)' when it cannot read a real path out of the failure log, and
- * proposing an edit to a file we cannot read would be guesswork.
+ * Playwright reports paths relative to its own `testDir`, not the repository
+ * root — a suite in `fixture-app/` reports `e2e/fixture.spec.ts`. So a direct
+ * resolve from the root misses, and we fall back to finding the one tracked
+ * file whose path ends with what was reported.
+ *
+ * Returns null when the path is unknown or ambiguous. Proposing an edit to a
+ * file we cannot confidently identify would be guesswork.
  */
 function readTestSource(root: string, testFile: string): string | null {
   if (!testFile || testFile === '(unparsed)') return null;
-  const path = resolve(root, testFile);
-  return existsSync(path) ? readFileSync(path, 'utf8') : null;
+
+  const direct = resolve(root, testFile);
+  if (existsSync(direct)) return readFileSync(direct, 'utf8');
+
+  const suffix = testFile.split('\\').join('/');
+  const matches = collectSourceFiles(root).filter(
+    (file) => file === suffix || file.endsWith(`/${suffix}`),
+  );
+
+  // Exactly one match, or we do not know which file was meant.
+  if (matches.length !== 1 || !matches[0]) return null;
+  return readFileSync(resolve(root, matches[0]), 'utf8');
+}
+
+/**
+ * Did this change touch the specification?
+ *
+ * An intentional contract change means the spec moved. If the diff does not
+ * touch the spec file, nothing in this change can have authorised new
+ * behaviour — whatever the model believes about which criterion is "related".
+ *
+ * Only diff headers are inspected, so a criterion merely quoted in a code
+ * comment or a test fixture does not count as the spec changing.
+ */
+export function specWasChanged(diff: string, specFile: string): boolean {
+  const needle = specFile.split('\\').join('/');
+
+  return diff
+    .split('\n')
+    .filter((line) => /^(diff --git |\+{3} |-{3} )/.test(line))
+    .some((line) => line.split('\\').join('/').includes(needle));
 }
 
 export async function runClassify(
@@ -66,6 +100,34 @@ export async function runClassify(
     },
     complete,
   );
+
+  /*
+   * Deterministic override: no spec change, no authorisation.
+   *
+   * Models conflate "this criterion governs the behaviour" with "this criterion
+   * authorises the new behaviour". Observed in rehearsal: the shipping fee was
+   * changed from 4.99 to 9.99 with no spec change, and the classifier returned
+   * intentional_change citing the very criterion that mandates 4.99 — a
+   * criterion the change violates rather than permits.
+   *
+   * The citation check cannot catch this, because the cited criterion does
+   * exist. But an intentional contract change means the specification moved,
+   * and that is a fact about the diff, not a judgement call. If the spec did
+   * not change, nothing here authorised anything.
+   */
+  if (verdict.kind === 'intentional_change' && !specWasChanged(options.diff, options.specFile)) {
+    const cited = verdict.acId ?? 'a criterion';
+    verdict = {
+      ...verdict,
+      kind: 'regression',
+      acId: null,
+      reasoning:
+        `Classified as a regression: the change does not touch ${options.specFile}, so no ` +
+        `criterion authorises it. The classifier cited ${cited}, but a criterion that governs ` +
+        `this behaviour is not the same as one that permits changing it.` +
+        `\n\nModel reasoning: ${verdict.reasoning}`,
+    };
+  }
 
   let proposalSkipped: string | undefined;
 

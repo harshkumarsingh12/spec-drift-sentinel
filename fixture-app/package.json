@@ -1,0 +1,15 @@
+{
+  "name": "fixture-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo fixture: a tiny cart API whose tests can be made to fail on demand.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1"
+  }
+}
