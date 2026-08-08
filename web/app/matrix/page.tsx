@@ -29,7 +29,7 @@ function StatusBadge({ status }: { status: TraceabilityRow['status'] }) {
       : status === 'untested'
         ? 'badge badge-warn'
         : 'badge badge-danger';
-  return <span className={cls}>{status.toUpperCase()}</span>;
+  return <span className={cls}>{status}</span>;
 }
 
 export default function MatrixPage() {
