@@ -29,3 +29,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# AI & personal scratch pad
+memory.md
+.clineignore
+.cline/
