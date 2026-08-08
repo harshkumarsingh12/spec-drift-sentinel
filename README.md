@@ -197,7 +197,7 @@ each person's keys stay on their own machine.
 
 - [ ] `node --version` reports 22 or higher
 - [ ] `npm install` completed without errors
-- [ ] `npm test` is green — 92 tests passing
+- [ ] `npm test` is green — 101 tests passing
 - [ ] `.env` populated with **your own** keys
 - [ ] `npm run check:providers` reports 2 working
 - [ ] `npm run sentinel -- arch` runs and passes
@@ -229,13 +229,21 @@ takes a git diff and a test-failure log, decides regression vs. authorised chang
 optionally drafts a test update, and records the decision in the audit log. It never
 writes to a test file — the proposal goes to the dashboard for a human to ratify.
 
-Dashboard and end-to-end tests live in `web/`:
+Dashboard and its end-to-end tests live in `web/`:
 
 ```bash
 cd web
 npm run dev                     # http://localhost:3000
 npm run test:e2e                # Playwright — builds and starts the app itself
 npm run test:e2e:report         # open the HTML report
+```
+
+The demo fixture lives in `fixture-app/`:
+
+```bash
+cd fixture-app
+npm start                       # http://localhost:3100
+npm run test:e2e                # 7 specs — these are what you break in the demo
 ```
 
 **Exit codes are a contract**, because the CLI runs as a CI gate:
@@ -253,7 +261,7 @@ nothing has been applied yet.
 ## Project structure
 
 ```
-spec/PRD.md              acceptance criteria (AC-n) — the contract
+spec/PRD.md              acceptance criteria — AC-1..6 the product, AC-7..9 the fixture
 src/
   types.ts               FROZEN shared contract: Verdict, AuditEntry, …
   cli.ts                 entry point, CI-gate exit codes
@@ -264,13 +272,18 @@ src/
   agent/
     classifier.ts        custom agent: drift-classifier
     proposer.ts          custom skill: propose-playwright-test
-    provider.ts          NVIDIA → Groq failover
+    provider.ts          NVIDIA → Groq failover, with per-request timeout
+  commands/classify.ts   orchestration: classify → propose → record
   audit/log.ts           append-only JSONL decision log
 web/                     Next.js dashboard (inbox, diff viewer, matrix, timeline)
-fixture-app/             deliberately tiny target app — exists to be broken in the demo
+fixture-app/             the demo prop — a tiny cart API, built to be broken
 tests/                   unit tests, including the safety guarantees
 .github/workflows/ci.yml CI pipeline
 ```
+
+**Three npm packages.** The root (CLI + unit tests), `web/` (dashboard + its Playwright specs),
+and `fixture-app/` (demo prop + its Playwright specs). Each has its own `package.json`, so check
+which directory you are in before wondering why a script does not exist.
 
 ## How the spec works
 
@@ -304,7 +317,7 @@ Miss any one and the submission never reaches a scorer.
 
 - [x] **Architecture document** — [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - [x] **Agent rules** — [`AGENTS.md`](AGENTS.md)
-- [x] **Working code** — builds, runs, 92 tests passing
+- [x] **Working code** — builds, runs, 101 tests passing
 - [x] **One custom agent + one custom skill** — documented in [`AGENTS_AND_SKILLS.md`](AGENTS_AND_SKILLS.md)
 - [x] **Green CI/CD pipeline** — GitHub Actions, most recent run passing
 
@@ -327,7 +340,8 @@ Miss any one and the submission never reaches a scorer.
 - [x] Proposer drafting test updates, recorded but never applied
 - [x] Dashboard: drift inbox
 - [x] Dashboard: diff viewer — renders; approve / reject still to wire up
-- [ ] **`fixture-app` + its Playwright tests in CI** — does not exist yet
+- [x] **`fixture-app`** — 3 endpoints, 1 screen, 7 Playwright tests
+- [x] **Both demo paths rehearsed against a live model** — regression and authorised change
 - [ ] **Dashboard: approve / reject actually working**
 - [ ] **Dashboard reading the real `.sentinel/audit.jsonl` instead of mocks**
 - [ ] Dashboard: traceability matrix built out (currently a stub)
@@ -349,26 +363,67 @@ Miss any one and the submission never reaches a scorer.
 
 ### Demo script
 
-- [ ] **Regression** — break an endpoint in `fixture-app`. Verdict `regression`, CI red, contract named, no test modified.
-- [ ] **Intentional change** — edit an AC *and* the matching code. Verdict `intentional_change`, diff proposed in the inbox citing the AC, not applied.
-- [ ] **Ratify** — approve in the dashboard, test updates, CI green, both decisions visible in the timeline.
-- [ ] **Deterministic** — add an illegal import. Fails with no LLM involved.
+Both classification paths are **rehearsed and working** against a live model. Run them exactly
+like this — the scoped `git diff` matters, see the note below.
+
+**1. A genuine bug → `regression`**
+
+```bash
+# break the fee in fixture-app/server.mjs: 4.99 -> 9.99. Do NOT touch the spec.
+cd fixture-app && npx playwright test > ../failures.txt 2>&1 ; cd ..
+git diff -- spec fixture-app > change.patch
+npm run sentinel -- classify --failures failures.txt --diff change.patch --propose
+```
+
+Expect `regression`, no criterion cited, no proposal, exit 1, and *"Fix the code."*
+
+**2. An authorised change → `intentional_change`**
+
+```bash
+# restore the fee, then lower the threshold 500 -> 300 in BOTH
+# spec/PRD.md (AC-7 and AC-8) and fixture-app/server.mjs
+cd fixture-app && npx playwright test > ../failures.txt 2>&1 ; cd ..
+git diff -- spec fixture-app > change.patch
+npm run sentinel -- classify --failures failures.txt --diff change.patch --propose
+```
+
+Expect `intentional_change` citing AC-7, a proposed test diff carrying
+`// Authorized by AC-7`, and *"NOT applied, awaiting human ratification."*
+
+**3. Ratify** — approve in the dashboard, then show both decisions in the audit timeline.
+
+**4. Deterministic** — add an illegal import, run `sentinel arch`. Fails with no LLM involved.
+
+> **Scope the diff.** `git diff -- spec fixture-app` rather than a bare `git diff`. Unrelated
+> changes elsewhere in the tree get sent to the model and can steer its reasoning — during
+> rehearsal, in-flight edits to the classifier's own source came back paraphrased in the
+> verdict. Send only the change under review.
+
+> **Change AC-7 and AC-8 together.** Editing only one leaves the spec self-contradictory —
+> "below 500 costs 4.99" alongside "300 or more ships free" — and the classifier reasons badly
+> about a spec that disagrees with itself. Which is fair.
 
 ---
 
 ## Picking this up mid-build
 
-**The backend is done.** `sentinel classify` runs the whole pipeline end to end, 92 tests pass,
-CI is green, and both LLM providers respond. **Everything remaining is the demo surface** — the
-product works, but nobody can watch it work yet.
+**The backend and the demo fixture are done.** `sentinel classify` runs the whole pipeline end to
+end, 101 tests pass, CI is green, both LLM providers respond, and **both demo paths have been
+rehearsed against a live model** — a genuine bug comes back `regression`, a spec-authorised
+change comes back `intentional_change` with a proposed test diff.
 
-Three things block a live demo:
+**What remains is the dashboard.** The product works and can be demonstrated from a terminal;
+what it cannot yet do is let a human ratify anything.
 
 | Blocker | Owner | Why it matters |
 |---|---|---|
-| **`fixture-app` doesn't exist** | D | The demo's first step is "break an endpoint". There is no endpoint to break. |
-| **Approve / Reject do nothing** | C | The ratification gate is the product's entire argument. |
-| **Dashboard shows mock data** | C + D | Judges would be looking at fixtures, not real verdicts. |
+| **Approve / Reject do nothing** | C | The ratification gate is the product's entire argument. Today the demo has to stop at the terminal. |
+| **Dashboard shows mock data** | C + D | Judges would see fixtures, not the real verdicts the CLI just produced. |
+| Matrix and timeline are stubs | D | Both render; neither is built out. |
+
+> **There is real data waiting for you.** Running the demo script writes genuine verdicts to
+> `.sentinel/audit.jsonl`. Point the dashboard at that file and you have real content to build
+> against — no need to invent any.
 
 ### If you are Person C
 
@@ -382,13 +437,10 @@ the exact behaviour this product exists to prevent. It is not a bug.
 
 ### If you are Person D
 
-Own `/matrix`, `/timeline`, and **`fixture-app`**.
+Own `/matrix` and `/timeline`. Both render but are deliberately plain — build them out.
 
-`fixture-app` is a deliberately tiny throwaway app whose only job is to be broken on purpose:
-three endpoints, one screen, a few Playwright tests, living at `fixture-app/` in this repo — not
-a separate one. Our product diagnoses failing tests, so we need something whose tests can fail.
-
-Keep it small. A plain Node HTTP server is enough — no framework, no database. It is a stage
+`fixture-app` is **already built** and both demo paths are rehearsed, so that is off your plate.
+If you do touch it, keep it small — plain Node HTTP, no framework, no database. It is a stage
 prop, and time spent polishing it buys nothing.
 
 ### Read first
