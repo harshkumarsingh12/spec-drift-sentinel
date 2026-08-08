@@ -10,6 +10,65 @@ reading real, live-generated data (see [Deployment](#deployment)), not a static 
 
 ---
 
+## For reviewers — start here
+
+**Fastest path, 2 minutes, no install.** Open the
+[live dashboard](https://spec-drift-sentinel.onrender.com/) and click through:
+
+1. **Home** — live counts, pulled from the real audit log and the real spec at request time.
+2. **Inbox** — pending verdicts. Notice the regression has no Approve button and doesn't
+   link anywhere — that's deliberate, not missing functionality (see AC-1).
+3. **Click an "intentional change" row** → the diff viewer, the one screen that matters: the
+   proposed test change shown next to the acceptance criterion cited as its authorisation,
+   with Approve and Reject styled **identically on purpose** (a prominent Approve would nudge
+   reviewers into rubber-stamping, which is the exact failure mode this product exists to stop).
+4. **Matrix** — every criterion in `spec/PRD.md`, colour-coded by coverage status computed by
+   scanning the actual repo tree for `@covers` annotations — not hand-typed.
+5. **Timeline** — every decision ever recorded, oldest to newest, with who ratified it.
+
+**Try clicking Approve or Reject** on a pending verdict. It's a real write to the audit log —
+the row disappears from the inbox and appears in the timeline immediately, because every page
+reads `.sentinel/audit.jsonl` fresh on each request (no build-time caching). If you want to see
+this without altering the live demo state, do it locally instead (below).
+
+**How to tell this isn't a hand-built mockup:** the dashboard's content comes from
+[`web/scripts/seed-audit-log.mjs`](web/scripts/seed-audit-log.mjs), which runs the real
+`runClassify` pipeline (`src/commands/classify.ts` — the same code `sentinel classify` uses)
+with a scripted model response instead of a live network call, so it's reproducible on every
+deploy. Verdict IDs are real UUIDs assigned at classify time, not fixture strings.
+
+### The 5 non-negotiable gate items
+
+| # | Item | Where |
+|---|---|---|
+| 1 | Architecture document | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| 2 | Agent rules | [`AGENTS.md`](AGENTS.md) |
+| 3 | Working code | [live dashboard](https://spec-drift-sentinel.onrender.com/), or run it yourself below |
+| 4 | Custom agent + custom skill | [`AGENTS_AND_SKILLS.md`](AGENTS_AND_SKILLS.md) |
+| 5 | Green CI/CD pipeline | [Actions tab](https://github.com/harshkumarsingh12/spec-drift-sentinel/actions) — most recent run |
+
+### Run it yourself, ~10 minutes, no API key needed
+
+```bash
+git clone https://github.com/harshkumarsingh12/spec-drift-sentinel.git
+cd spec-drift-sentinel
+npm install && npm test           # 102 unit tests
+npm run sentinel -- arch          # deterministic architecture check
+npm run sentinel -- trace         # acceptance criterion → code → test matrix
+
+cd web
+npm install && npm run dev        # http://localhost:3000 — real data, same as the live site
+npx playwright test               # 18 end-to-end specs against the real dashboard
+```
+
+### See the classifier make a real model call, ~2 minutes, needs your own free API key
+
+Jump to [Demo script](#demo-script) — it walks through both verdict paths (a genuine
+regression and a spec-authorised change) against a live model, end to end, including
+ratifying the result in the dashboard.
+
+---
+
 ## The problem
 
 When an end-to-end test fails, two very different things may have happened:
