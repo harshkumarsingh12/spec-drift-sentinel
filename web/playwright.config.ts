@@ -31,7 +31,11 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
   webServer: {
-    command: 'npm run build && npm run start',
+    // Builds the root backend, seeds .sentinel/audit.jsonl through the real
+    // classify pipeline (deterministic, no network — see scripts/seed-audit-log.mjs),
+    // then builds and starts the dashboard. Runs from a clean clone with no
+    // manual setup, which is what a judge will try.
+    command: 'npm --prefix .. run build && npm run seed && npm run build && npm run start',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

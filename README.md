@@ -339,13 +339,13 @@ Miss any one and the submission never reaches a scorer.
 - [x] Classifier producing verdicts from real Playwright output — `sentinel classify`
 - [x] Proposer drafting test updates, recorded but never applied
 - [x] Dashboard: drift inbox
-- [x] Dashboard: diff viewer — renders; approve / reject still to wire up
+- [x] Dashboard: diff viewer — renders; approve / reject wired up
 - [x] **`fixture-app`** — 3 endpoints, 1 screen, 7 Playwright tests
 - [x] **Both demo paths rehearsed against a live model** — regression and authorised change
-- [ ] **Dashboard: approve / reject actually working**
-- [ ] **Dashboard reading the real `.sentinel/audit.jsonl` instead of mocks**
-- [ ] Dashboard: traceability matrix built out (currently a stub)
-- [ ] Dashboard: audit timeline built out (currently a stub)
+- [x] **Dashboard: approve / reject actually working**
+- [x] **Dashboard reading the real `.sentinel/audit.jsonl` instead of mocks**
+- [x] Dashboard: traceability matrix built out (scans the real tree for `@covers`)
+- [x] Dashboard: audit timeline built out (reads every real row, oldest to newest)
 - [ ] `sentinel diff` — git diff → affected criteria
 - [ ] Fix the `@covers` false positive (matches ids inside string literals)
 - [ ] Tag `v1.0.0`
@@ -407,19 +407,27 @@ Expect `intentional_change` citing AC-7, a proposed test diff carrying
 
 ## Picking this up mid-build
 
+> **Update:** the section below documents the handoff point when the dashboard still read mock
+> data. That is no longer the case — `web/lib/data.ts` reads `.sentinel/audit.jsonl` and
+> `spec/PRD.md` directly, Approve/Reject write real ratifications through
+> `web/app/api/verdicts/[verdictId]/decision/route.ts`, and `web/scripts/seed-audit-log.mjs`
+> drives the real `runClassify` pipeline (scripted model, no network) so `npx playwright test`
+> has deterministic real content on a clean clone. Kept below as a record of where the build
+> stood at that point.
+
 **The backend and the demo fixture are done.** `sentinel classify` runs the whole pipeline end to
 end, 101 tests pass, CI is green, both LLM providers respond, and **both demo paths have been
 rehearsed against a live model** — a genuine bug comes back `regression`, a spec-authorised
 change comes back `intentional_change` with a proposed test diff.
 
-**What remains is the dashboard.** The product works and can be demonstrated from a terminal;
-what it cannot yet do is let a human ratify anything.
+**What remained was the dashboard.** The product worked and could be demonstrated from a
+terminal; what it could not yet do was let a human ratify anything through the UI.
 
-| Blocker | Owner | Why it matters |
+| Blocker (resolved) | Owner | Why it mattered |
 |---|---|---|
-| **Approve / Reject do nothing** | C | The ratification gate is the product's entire argument. Today the demo has to stop at the terminal. |
-| **Dashboard shows mock data** | C + D | Judges would see fixtures, not the real verdicts the CLI just produced. |
-| Matrix and timeline are stubs | D | Both render; neither is built out. |
+| Approve / Reject did nothing | C | The ratification gate is the product's entire argument. The demo had to stop at the terminal. |
+| Dashboard showed mock data | C + D | Judges would see fixtures, not the real verdicts the CLI just produced. |
+| Matrix and timeline were stubs | D | Both rendered; neither read real coverage or the real log. |
 
 > **There is real data waiting for you.** Running the demo script writes genuine verdicts to
 > `.sentinel/audit.jsonl`. Point the dashboard at that file and you have real content to build

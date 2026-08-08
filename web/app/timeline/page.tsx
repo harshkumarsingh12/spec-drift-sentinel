@@ -1,12 +1,16 @@
-import { mockAuditLog } from '@/lib/mock-data';
+import { getAuditLog } from '@/lib/data';
 import type { AuditEntry } from '@/lib/types';
+
+// Reads .sentinel/audit.jsonl at request time — must not be prerendered, or
+// new decisions would not appear until the next build.
+export const dynamic = 'force-dynamic';
 
 /**
  * Audit timeline — Person D.
  *
- * Every decision, automated and human, in the order it happened.
- * Designed to be skimmable: a judge scrolls this to reconstruct who signed
- * off on what and when.
+ * Every row ever appended to `.sentinel/audit.jsonl`, newest first. Designed
+ * to be skimmable: a judge scrolls this to reconstruct who signed off on
+ * what and when.
  *
  * @covers AC-4
  */
@@ -51,7 +55,7 @@ function StatusNode({ decision }: { decision: AuditEntry['humanDecision'] }) {
 }
 
 export default function TimelinePage() {
-  const entries = [...mockAuditLog].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  const entries = [...getAuditLog()].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
   if (entries.length === 0) {
     return (
@@ -79,7 +83,9 @@ export default function TimelinePage() {
         {entries.map((entry, idx) => (
           <div
             className="timeline-item"
-            key={`${entry.verdictId}-${entry.timestamp}`}
+            // Two rows for the same verdict (classified, then ratified) can land in the
+            // same millisecond, so the timestamp alone is not a unique key.
+            key={`${entry.verdictId}-${entry.humanDecision}-${idx}`}
             data-last={idx === entries.length - 1 ? 'true' : undefined}
           >
             {/* Node on the rail */}

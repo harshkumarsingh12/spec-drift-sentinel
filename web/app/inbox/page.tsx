@@ -1,13 +1,15 @@
 import Link from 'next/link';
-import { pendingVerdicts } from '@/lib/mock-data';
+import { getPendingVerdicts } from '@/lib/data';
 import type { Verdict } from '@/lib/types';
+
+// Reads .sentinel/audit.jsonl at request time — must not be prerendered, or a
+// decision made in the dashboard would not appear until the next build.
+export const dynamic = 'force-dynamic';
 
 /**
  * Drift inbox — Person C.
  *
- * This page is the reference pattern for the rest of the dashboard: read from
- * mock-data, type everything against lib/types, use the design tokens, and put
- * a data-testid on anything Playwright will need. Copy this shape.
+ * Reads real pending verdicts from `.sentinel/audit.jsonl` via lib/data.ts.
  *
  * Note the asymmetry: a regression is shown but is NOT actionable. It carries no
  * proposed diff because the fix belongs in the code, not the test. Do not add an
@@ -79,6 +81,8 @@ function VerdictRow({ verdict }: { verdict: Verdict }) {
 }
 
 export default function InboxPage() {
+  const pendingVerdicts = getPendingVerdicts();
+
   if (pendingVerdicts.length === 0) {
     return (
       <div className="empty">

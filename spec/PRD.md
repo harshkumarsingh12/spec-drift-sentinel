@@ -59,9 +59,11 @@ without any API key configured.
 ### AC-4: Every decision is recorded in an append-only log
 
 Each classification and each human ratification must append one row to the decision log,
-recording the verdict, the cited criterion, the model that produced it, a hash of any
-proposed diff, the human decision, and a timestamp. Rows are never edited or deleted, so the
-full history of a verdict can be reconstructed.
+recording the verdict, the cited criterion, the confidence score, the failing test, the model
+that produced it, a hash of any proposed diff, the full proposed diff text, the human decision,
+and a timestamp. Rows are never edited or deleted, so the full history of a verdict can be
+reconstructed — including, for a dashboard reading the log directly, the reasoning and diff a
+human reviewer needs to ratify it (AC-5).
 
 ### AC-5: A human ratifies every proposed change
 
