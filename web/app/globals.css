@@ -277,3 +277,100 @@ pre {
  * visually obvious default nudges reviewers into rubber-stamping, which is the
  * exact behaviour this product exists to prevent.
  */
+
+/* Matrix ------------------------------------------------------------------ */
+
+.matrix-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.matrix-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--panel-raised);
+  color: var(--muted);
+}
+
+.matrix-summary-pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.matrix-summary-pill.ok   .dot { background: var(--ok); }
+.matrix-summary-pill.warn .dot { background: var(--warn); }
+.matrix-summary-pill.bad  .dot { background: var(--danger); }
+
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.matrix-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.matrix-table td {
+  padding: 12px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.matrix-table tr:last-child td {
+  border-bottom: none;
+}
+
+.matrix-table tr:hover td {
+  background: var(--panel-raised);
+}
+
+.matrix-ac {
+  font-family: var(--mono);
+  white-space: nowrap;
+  color: var(--muted);
+  width: 72px;
+}
+
+.matrix-criterion {
+  font-weight: 500;
+}
+
+.matrix-criterion.covered  { color: var(--ok); }
+.matrix-criterion.untested { color: var(--warn); }
+.matrix-criterion.orphaned { color: var(--danger); }
+
+.matrix-covered-by {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.matrix-covered-by.nothing {
+  color: var(--muted);
+  font-style: italic;
+  font-family: var(--sans);
+}
+
+.matrix-status-col {
+  width: 110px;
+  text-align: right;
+}
