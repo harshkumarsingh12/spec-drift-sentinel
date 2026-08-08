@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { formatOutcome, runClassify } from '../src/commands/classify.js';
+import { formatOutcome, runClassify, specWasChanged } from '../src/commands/classify.js';
 import { readEntries } from '../src/audit/log.js';
 import type { CompleteFn } from '../src/agent/provider.js';
 
@@ -52,10 +52,30 @@ function workspace(): string {
   return root;
 }
 
-const options = (root: string, propose = false) => ({
+/** A diff that touches the spec — required for an intentional change to stand. */
+const SPEC_DIFF = [
+  'diff --git a/spec/PRD.md b/spec/PRD.md',
+  '--- a/spec/PRD.md',
+  '+++ b/spec/PRD.md',
+  '-Orders of 300 or more ship free.',
+  '+Orders of 500 or more ship free.',
+  'diff --git a/src/shipping.ts b/src/shipping.ts',
+  '+ threshold = 500;',
+].join('\n');
+
+/** A diff that changes only code — nothing here authorises anything. */
+const CODE_ONLY_DIFF = [
+  'diff --git a/src/shipping.ts b/src/shipping.ts',
+  '--- a/src/shipping.ts',
+  '+++ b/src/shipping.ts',
+  '- const FEE = 4.99;',
+  '+ const FEE = 9.99;',
+].join('\n');
+
+const options = (root: string, propose = false, diff: string = SPEC_DIFF) => ({
   root,
   specFile: 'spec/PRD.md',
-  diff: '+ threshold = 500;',
+  diff,
   failureLog: FAILURE_LOG,
   propose,
   auditLogPath: '.sentinel/audit.jsonl',
@@ -152,6 +172,84 @@ describe('runClassify', () => {
       runClassify(options(root), scriptedComplete(REGRESSION)),
       /Spec file not found/,
     );
+  });
+});
+
+describe('specWasChanged', () => {
+  test('sees a spec change in the diff headers', () => {
+    assert.equal(specWasChanged(SPEC_DIFF, 'spec/PRD.md'), true);
+  });
+
+  test('reports false for a code-only change', () => {
+    assert.equal(specWasChanged(CODE_ONLY_DIFF, 'spec/PRD.md'), false);
+  });
+
+  test('ignores the spec merely being mentioned in a code line', () => {
+    // A criterion quoted in a comment or fixture must not read as a spec change.
+    const diff = [
+      'diff --git a/src/thing.ts b/src/thing.ts',
+      '+++ b/src/thing.ts',
+      '+// see spec/PRD.md for the rule',
+    ].join('\n');
+
+    assert.equal(specWasChanged(diff, 'spec/PRD.md'), false);
+  });
+
+  test('tolerates windows-style separators', () => {
+    assert.equal(specWasChanged('+++ b/spec\\PRD.md', 'spec/PRD.md'), true);
+  });
+
+  test('reports false for an empty diff', () => {
+    assert.equal(specWasChanged('', 'spec/PRD.md'), false);
+  });
+});
+
+describe('no spec change means no authorisation', () => {
+  test('downgrades an intentional change when the spec was not touched', async () => {
+    // Observed in rehearsal: the fee was changed with no spec change and the
+    // classifier cited the very criterion that mandates the old value.
+    const root = workspace();
+    const { verdict } = await runClassify(
+      options(root, false, CODE_ONLY_DIFF),
+      scriptedComplete(AUTHORISED),
+    );
+
+    assert.equal(verdict.kind, 'regression');
+    assert.equal(verdict.acId, null);
+    assert.match(verdict.reasoning, /does not touch spec\/PRD\.md/);
+    assert.match(verdict.reasoning, /not the same as one that permits changing it/);
+  });
+
+  test('keeps the model reasoning visible after downgrading', async () => {
+    const root = workspace();
+    const { verdict } = await runClassify(
+      options(root, false, CODE_ONLY_DIFF),
+      scriptedComplete(AUTHORISED),
+    );
+
+    assert.match(verdict.reasoning, /Model reasoning:/);
+    assert.match(verdict.reasoning, /AC-2 raised it/);
+  });
+
+  test('proposes nothing once downgraded, even with --propose', async () => {
+    const root = workspace();
+    const { verdict } = await runClassify(
+      options(root, true, CODE_ONLY_DIFF),
+      scriptedComplete(AUTHORISED, PROPOSAL),
+    );
+
+    assert.equal(verdict.proposedDiff, null);
+  });
+
+  test('allows an intentional change when the spec did move', async () => {
+    const root = workspace();
+    const { verdict } = await runClassify(
+      options(root, false, SPEC_DIFF),
+      scriptedComplete(AUTHORISED),
+    );
+
+    assert.equal(verdict.kind, 'intentional_change');
+    assert.equal(verdict.acId, 'AC-2');
   });
 });
 

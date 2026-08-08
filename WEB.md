@@ -199,45 +199,45 @@ deleting the assertion.
 
 | | Person C | Person D |
 |---|---|---|
-| Owns | `/inbox`, `/inbox/[verdictId]` | `/matrix`, `/timeline`, **`fixture-app/`** |
-| Priority | **Wire Approve / Reject** — nothing else comes close | **`fixture-app` first** — the demo does not exist without it |
+| Owns | `/inbox`, `/inbox/[verdictId]` | `/matrix`, `/timeline` |
+| Priority | **Wire Approve / Reject** — nothing else comes close | Matrix first — it is the most visual |
 | Shared | `app/globals.css`, `lib/` — coordinate before editing |
 
 Agree who touches `globals.css` before you both do. It is the one file you will conflict on.
 
-### 8.1 `fixture-app` — Person D, highest priority
+`fixture-app` is **built and both demo paths are rehearsed** — §8.1 below is kept as reference
+for how it works, not as work outstanding.
 
-**What it is:** a deliberately tiny throwaway app whose only purpose is to be broken on
-purpose during the demo. It lives at `fixture-app/` **in this repo**, not a separate one.
+### 8.1 `fixture-app` — reference, already built
 
-**Why we need it:** our product diagnoses failing tests. To demo that, we need something whose
-tests can fail. The demo is:
-
-1. Break an endpoint → the tool says *"regression — fix your code"*
-2. Change the spec **and** the code together → the tool says *"intentional change — here is an
-   updated test"*
-
-Same tool, opposite answers. That contrast **is** the demo, and right now there is nothing to
-break.
-
-**Shape:**
+A deliberately tiny cart API whose tests can be made to fail on demand. It exists because our
+product diagnoses failing tests, so we need something whose tests can fail.
 
 ```
 fixture-app/
-  package.json
-  server.ts             three endpoints
-  public/index.html     one screen
-  e2e/fixture.spec.ts   a few Playwright tests
+  server.mjs            3 endpoints, plain Node http, zero deps
+  public/index.html     1 screen
+  e2e/fixture.spec.ts   7 Playwright specs
 ```
 
-**Keep it tiny.** A plain Node HTTP server is enough — no framework, no database, minimal
-dependencies. It is a stage prop. Every minute spent making it nice is a minute not spent on
-the demo, and judges are not scoring it.
+Runs on **port 3100**, so it does not clash with the dashboard on 3000.
 
-**Design it around one rule you can point at in the spec.** For example a shipping-fee
-threshold: an endpoint returns a fee that depends on a number the PRD states. Breaking the
-endpoint gives you path 1; changing the threshold in both `spec/PRD.md` and the code gives you
-path 2. One rule, both demo paths.
+Everything hangs off one rule stated in the spec — the free-shipping threshold, `AC-8`:
+
+```js
+const FREE_SHIPPING_THRESHOLD = 500;   // AC-8 — the value changed live on stage
+const STANDARD_SHIPPING_FEE = 4.99;    // AC-7
+```
+
+Breaking the fee gives you the regression path. Changing the threshold in **both**
+`spec/PRD.md` and `server.mjs` gives you the authorised path. One rule, both demo paths.
+
+**Two things learned rehearsing it**, both now in the README demo script:
+
+- **Scope the diff** — `git diff -- spec fixture-app`, not a bare `git diff`. Unrelated changes
+  elsewhere get sent to the model and can steer its reasoning.
+- **Change AC-7 and AC-8 together.** Editing one leaves the spec contradicting itself, and the
+  classifier reasons badly about a spec that disagrees with itself.
 
 ## 9. Definition of done, per view
 

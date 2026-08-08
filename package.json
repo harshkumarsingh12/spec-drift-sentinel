@@ -16,7 +16,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "npm run build && node --test \"dist/tests/**/*.test.js\"",
-    "sentinel": "node dist/src/cli.js",
+    "sentinel": "node --env-file-if-exists=.env dist/src/cli.js",
     "check:providers": "node --env-file-if-exists=.env scripts/check-providers.mjs",
     "postinstall": "node scripts/ensure-env.mjs && node scripts/setup-hooks.mjs"
   },

@@ -35,6 +35,12 @@ classify the failure as `regression`, leave the test unmodified, and exit non-ze
 stays red. Absence of a criterion forbidding the behaviour is not authorisation. An
 uncertain classification must fall back to `regression`.
 
+A criterion that merely *governs* the behaviour is not one that *authorises changing* it.
+Accordingly, if the change under review does not modify the specification file, the system
+must treat the failure as a regression regardless of which criterion was cited. An intentional
+contract change means the specification moved, and whether it moved is a fact about the diff
+rather than a judgement the classifier is permitted to make.
+
 ### AC-2: A test update may only be proposed, never applied
 
 The system may draft an updated test only when a failure has been classified as
@@ -69,6 +75,33 @@ ratifying identity is recorded in the audit log.
 With no provider key configured, the deterministic checks (`arch`, `trace`, `audit`) must
 still run and report correctly. Only classification and proposal require a provider, and
 their absence must produce a clear message naming the environment variables to set.
+
+---
+
+## Fixture application
+
+The criteria below govern `fixture-app/`, a deliberately tiny demo fixture — **not Spec Drift
+Sentinel itself**. They exist so the tool has a real specification to reason about, and a real
+application whose tests can be made to fail on demand.
+
+They live here rather than in a second spec file so the whole pipeline works with no extra
+flags: the CLI reads this file, writes to the root audit log, and the dashboard reads that same
+log.
+
+### AC-7: Orders below the free-shipping threshold are charged a flat fee
+
+An order with a subtotal below 500 is charged a shipping fee of 4.99. The cart API must return
+the subtotal, the shipping fee, and the total including that fee.
+
+### AC-8: Orders at or above the threshold ship free
+
+An order with a subtotal of 500 or more is charged a shipping fee of 0.00. The threshold is
+inclusive: a subtotal of exactly 500 ships free.
+
+### AC-9: The cart screen shows monetary values to two decimal places
+
+The cart screen must display the subtotal, shipping fee and total formatted to exactly two
+decimal places, so a zero fee reads `0.00` rather than `0`.
 
 ---
 
