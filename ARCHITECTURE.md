@@ -100,11 +100,29 @@ These are enforced in code and covered by tests, not merely intended:
 
 1. A verdict of `intentional_change` citing an AC that does not exist is downgraded to
    `regression` (`normaliseVerdict`, `tests/classifier.test.ts`).
-2. `propose()` throws if given anything other than an authorised `intentional_change`
+2. **A verdict of `intentional_change` is downgraded to `regression` when the diff does not
+   touch the spec file** (`specWasChanged`, `tests/classify-command.test.ts`).
+3. `propose()` throws if given anything other than an authorised `intentional_change`
    (`tests/proposer.test.ts`).
-3. No code path writes a proposed diff to a test file. Application happens only after an
+4. No code path writes a proposed diff to a test file. Application happens only after an
    explicit human decision.
-4. Deterministic checks run with no API key configured (AC-6).
+5. Deterministic checks run with no API key configured (AC-6).
+
+### Why property 2 exists
+
+It was added after a live rehearsal, not designed up front. The shipping fee in the demo fixture
+was changed from 4.99 to 9.99 with no accompanying spec change — an unambiguous regression — and
+the classifier returned `intentional_change` citing AC-7, the very criterion that mandates 4.99.
+
+The model had conflated a criterion that *governs* a behaviour with one that *authorises
+changing* it. Property 1 cannot catch this, because the cited criterion genuinely exists.
+
+The fix is deterministic rather than a stronger prompt: an intentional contract change means the
+specification moved, and whether it moved is a fact about the diff. Only diff headers are
+inspected, so a criterion quoted in a comment or a fixture does not count as the spec changing.
+
+This is the clearest illustration of the design principle above. The model's judgement is
+useful, but it is fenced in by checks that do not depend on judgement.
 
 ## Stack
 
