@@ -127,6 +127,35 @@ export function buildTraceability(root: string, criteria: AcceptanceCriterion[])
   });
 }
 
+const DIFF_NEW_FILE = /^\+\+\+ b\/(.+)$/;
+const DIFF_OLD_FILE = /^--- a\/(.+)$/;
+
+/**
+ * Repo-relative paths touched by a unified diff, deduplicated.
+ *
+ * Reads `+++ b/…` and `--- a/…` headers rather than `diff --git` lines, so it
+ * also catches the pre-image side of a rename or delete. `/dev/null` (an
+ * added or deleted file's missing side) never matches, since it carries no
+ * `a/`/`b/` prefix.
+ */
+export function changedFilesFromDiff(diff: string): string[] {
+  const files = new Set<string>();
+
+  for (const line of diff.split('\n')) {
+    const added = DIFF_NEW_FILE.exec(line);
+    if (added?.[1]) {
+      files.add(added[1].split('\\').join('/'));
+      continue;
+    }
+    const removed = DIFF_OLD_FILE.exec(line);
+    if (removed?.[1]) {
+      files.add(removed[1].split('\\').join('/'));
+    }
+  }
+
+  return [...files];
+}
+
 /** Criteria plausibly affected by a set of changed files. */
 export function affectedCriteria(
   changedFiles: string[],

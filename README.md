@@ -280,6 +280,8 @@ npm run sentinel -- arch        # dependency rules — deterministic, no API key
 npm run sentinel -- trace       # acceptance criterion → code → test matrix
 npm run sentinel -- trace --strict   # …and fail if any criterion is uncovered
 npm run sentinel -- audit       # the decision log
+npm run sentinel -- diff        # which acceptance criteria a git diff touches
+npm run sentinel -- diff --diff change.patch   # …or a specific diff file
 npm run sentinel -- help
 
 # diagnose a failing test against the spec (needs a provider key)
@@ -446,7 +448,8 @@ Miss any one and the submission never reaches a scorer.
 - [x] **Dashboard reading the real `.sentinel/audit.jsonl` instead of mocks**
 - [x] Dashboard: traceability matrix built out (scans the real tree for `@covers`)
 - [x] Dashboard: audit timeline built out (reads every real row, oldest to newest)
-- [ ] `sentinel diff` — git diff → affected criteria
+- [x] `sentinel diff` — git diff → affected criteria (`src/analyzers/traceability.ts`'s
+      `changedFilesFromDiff` + `affectedCriteria`, wired into the CLI)
 - [ ] Fix the `@covers` false positive (matches ids inside string literals)
 - [x] Tag `v1.0.0` — triggers `deploy` + `release` in CI (see Deployment above)
 - [ ] ~3 minute demo video recorded

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import {
   affectedCriteria,
   buildTraceability,
+  changedFilesFromDiff,
   coveredIds,
   parseAcceptanceCriteria,
   parseAcceptanceCriteriaFromText,
@@ -91,6 +92,60 @@ describe('buildTraceability', () => {
     assert.equal(byId.get('AC-1')?.status, 'covered');
     assert.equal(byId.get('AC-2')?.status, 'untested');
     assert.equal(byId.get('AC-3')?.status, 'orphaned');
+  });
+});
+
+describe('changedFilesFromDiff', () => {
+  test('extracts the post-image path from a modified file', () => {
+    const diff = [
+      'diff --git a/src/checkout.ts b/src/checkout.ts',
+      'index abc123..def456 100644',
+      '--- a/src/checkout.ts',
+      '+++ b/src/checkout.ts',
+      '@@ -1,3 +1,3 @@',
+      '-old line',
+      '+new line',
+    ].join('\n');
+    assert.deepEqual(changedFilesFromDiff(diff), ['src/checkout.ts']);
+  });
+
+  test('picks up both sides of a rename', () => {
+    const diff = [
+      'diff --git a/src/old-name.ts b/src/new-name.ts',
+      'similarity index 100%',
+      'rename from src/old-name.ts',
+      'rename to src/new-name.ts',
+      '--- a/src/old-name.ts',
+      '+++ b/src/new-name.ts',
+    ].join('\n');
+    assert.deepEqual(
+      changedFilesFromDiff(diff).sort(),
+      ['src/new-name.ts', 'src/old-name.ts'].sort(),
+    );
+  });
+
+  test('ignores /dev/null on an added or deleted file', () => {
+    const added = ['diff --git a/src/new.ts b/src/new.ts', '--- /dev/null', '+++ b/src/new.ts'].join(
+      '\n',
+    );
+    assert.deepEqual(changedFilesFromDiff(added), ['src/new.ts']);
+
+    const deleted = [
+      'diff --git a/src/gone.ts b/src/gone.ts',
+      '--- a/src/gone.ts',
+      '+++ /dev/null',
+    ].join('\n');
+    assert.deepEqual(changedFilesFromDiff(deleted), ['src/gone.ts']);
+  });
+
+  test('deduplicates and normalises windows separators', () => {
+    const diff = ['--- a/src\\checkout.ts', '+++ b/src\\checkout.ts'].join('\n');
+    assert.deepEqual(changedFilesFromDiff(diff), ['src/checkout.ts']);
+  });
+
+  test('returns nothing for a diff with no file headers', () => {
+    assert.deepEqual(changedFilesFromDiff(''), []);
+    assert.deepEqual(changedFilesFromDiff('just some prose, not a diff'), []);
   });
 });
 

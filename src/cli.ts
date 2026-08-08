@@ -3,7 +3,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { checkArchitecture, formatViolation } from './analyzers/architecture.js';
-import { buildTraceability, parseAcceptanceCriteria } from './analyzers/traceability.js';
+import {
+  affectedCriteria,
+  buildTraceability,
+  changedFilesFromDiff,
+  parseAcceptanceCriteria,
+} from './analyzers/traceability.js';
 import { readEntries } from './audit/log.js';
 import { formatOutcome, runClassify } from './commands/classify.js';
 import {
@@ -31,13 +36,15 @@ Commands:
   trace     Print the acceptance-criterion → code → test matrix
             --strict  exit non-zero if any criterion is uncovered
   audit     Print the decision log
+  diff      Print acceptance criteria affected by a diff
+            --diff <file>      git diff (default: git diff HEAD)
   classify  Diagnose a failing test against the specification
             --failures <file>  Playwright output (default: stdin)
             --diff <file>      git diff (default: git diff HEAD)
             --propose          also draft a candidate test update
   help      Show this message
 
-arch, trace and audit need no API key. classify requires a provider —
+arch, trace, audit and diff need no API key. classify requires a provider —
 see .env.example.
 `;
 
@@ -179,6 +186,55 @@ function commandTrace(root: string, strict: boolean): number {
   return strict && orphaned.length > 0 ? 1 : 0;
 }
 
+/**
+ * Which acceptance criteria a diff touches — the affected slice of the
+ * traceability map, not the whole thing. Useful for a PR description or a
+ * pre-classify sanity check: "is this change anywhere near a criterion?"
+ */
+function commandDiff(root: string, argv: string[]): number {
+  const config = loadConfig(root);
+  const specPath = resolve(root, config.specFile);
+
+  if (!existsSync(specPath)) {
+    console.error(`Spec file not found: ${config.specFile}`);
+    return 2;
+  }
+
+  const criteria = parseAcceptanceCriteria(specPath);
+  if (criteria.length === 0) {
+    console.error(`No acceptance criteria found in ${config.specFile}.`);
+    console.error('Declare them as headings, e.g. "### AC-1: Title".');
+    return 2;
+  }
+
+  const diff = resolveDiff(root, flagValue(argv, '--diff'));
+  const changedFiles = changedFilesFromDiff(diff);
+
+  if (changedFiles.length === 0) {
+    console.log('No changed files found in the diff.');
+    return 0;
+  }
+
+  console.log(`${changedFiles.length} file(s) changed:`);
+  for (const file of changedFiles) console.log(`  ${file}`);
+  console.log('');
+
+  const rows = buildTraceability(root, criteria);
+  const affected = affectedCriteria(changedFiles, rows);
+
+  if (affected.length === 0) {
+    console.log('No acceptance criteria are affected by this diff.');
+    return 0;
+  }
+
+  console.log(`${affected.length} criteri${affected.length === 1 ? 'on' : 'a'} affected:\n`);
+  for (const row of affected) {
+    console.log(`[${row.status}] ${row.acId}  ${row.title}`);
+  }
+
+  return 0;
+}
+
 function commandAudit(root: string): number {
   const config = loadConfig(root);
   const entries = readEntries(resolve(root, config.auditLog));
@@ -211,6 +267,8 @@ export async function run(argv: string[]): Promise<number> {
       return commandTrace(root, argv.includes('--strict'));
     case 'audit':
       return commandAudit(root);
+    case 'diff':
+      return commandDiff(root, argv);
     case 'classify':
       return commandClassify(root, argv);
     case 'help':

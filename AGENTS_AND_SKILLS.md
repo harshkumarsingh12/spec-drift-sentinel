@@ -91,5 +91,5 @@ this directly, including a stalled-then-fallthrough case.
 Requests default to JSON response mode, since both agents parse structured output — that turns
 a whole class of "the model wrapped it in prose" failures into a non-issue.
 
-With no key configured the deterministic commands (`arch`, `trace`, `audit`) still run
+With no key configured the deterministic commands (`arch`, `trace`, `audit`, `diff`) still run
 normally; only classification and proposal require a provider.
