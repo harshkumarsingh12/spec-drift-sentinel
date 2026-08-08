@@ -11,7 +11,7 @@ import DecisionButtons from './DecisionButtons';
 
 function DiffBlock({ diff }: { diff: string }) {
   return (
-    <pre className="diff">
+    <pre className="diff" data-testid="proposed-diff">
       {diff.split('\n').map((line, index) => {
         const cls = line.startsWith('+')
           ? 'diff-line diff-add'
