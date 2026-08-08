@@ -62,14 +62,17 @@ export default tseslint.config(
   },
 
   {
-    // Plain-JS helper scripts: no type-aware linting, Node globals available.
-    files: ['scripts/**/*.mjs'],
+    // Plain-JS Node files: helper scripts and the demo fixture's server.
+    // No type-aware linting, Node globals available.
+    files: ['scripts/**/*.mjs', 'fixture-app/**/*.mjs'],
     languageOptions: {
       globals: {
         process: 'readonly',
         console: 'readonly',
         fetch: 'readonly',
         AbortSignal: 'readonly',
+        Buffer: 'readonly',
+        URL: 'readonly',
       },
     },
   },
