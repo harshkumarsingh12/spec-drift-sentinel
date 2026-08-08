@@ -18,7 +18,7 @@ test.describe('traceability matrix', () => {
     await page.goto('/matrix');
 
     const statuses = await page.getByTestId('matrix-row').locator('.badge').last().allTextContents();
-    const all = (await page.getByTestId('matrix-row').allTextContents()).join(' ');
+    const all = (await page.getByTestId('matrix-row').allTextContents()).join(' ').toLowerCase();
 
     expect(all).toContain('covered');
     expect(all).toContain('untested');
