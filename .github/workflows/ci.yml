@@ -113,7 +113,9 @@ jobs:
         with:
           generate_release_notes: true
           body: |
-            Live dashboard (once Render deploy finishes, see the `deploy` job):
-            https://spec-drift-sentinel.onrender.com
+            **🔗 Live dashboard: https://spec-drift-sentinel.onrender.com/**
+
+            Click through Inbox → a diff-viewer verdict → Matrix → Timeline. It reads real,
+            live-generated data — not a static screenshot.
 
             Local setup: see README.md and CONTRIBUTING.md.
