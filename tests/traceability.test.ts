@@ -9,7 +9,6 @@ import {
   coveredIds,
   parseAcceptanceCriteria,
   parseAcceptanceCriteriaFromText,
-  parseTraceabilityMap,
 } from '../src/analyzers/traceability.js';
 
 /** @covers AC-3 */
@@ -116,48 +115,28 @@ describe('affectedCriteria', () => {
   });
 });
 
-describe('parseTraceabilityMap', () => {
-  test('maps every AC to the fixture target and Playwright test', () => {
-    const path = writeSpec(
-      [
-        '### AC-1: Login succeeds',
-        'Valid users can log in.',
-        '',
-        '### AC-2: Logout succeeds',
-        'Authenticated users can log out.',
-      ].join('\n'),
+describe('bullet-form criteria', () => {
+  test('are parsed from a file, not just from raw text', () => {
+    const criteria = parseAcceptanceCriteria(
+      writeSpec(['# PRD', '', '- AC-7: Checkout returns 201', '- AC-8: Refunds are logged'].join('\n')),
     );
 
-    const entries = parseTraceabilityMap(path);
-
-    assert.deepEqual(entries, [
-      {
-        ac_id: 'AC-1',
-        description: 'Valid users can log in.',
-        target_files: ['src/fixture-app/server.ts'],
-        associated_tests: ['tests/e2e/fixture.spec.ts'],
-      },
-      {
-        ac_id: 'AC-2',
-        description: 'Authenticated users can log out.',
-        target_files: ['src/fixture-app/server.ts'],
-        associated_tests: ['tests/e2e/fixture.spec.ts'],
-      },
-    ]);
+    assert.deepEqual(
+      criteria.map((ac) => ac.id),
+      ['AC-7', 'AC-8'],
+    );
+    assert.equal(criteria[0]?.text, 'Checkout returns 201');
   });
 
-  test('supports bullet-form AC declarations', () => {
-    const path = writeSpec('- AC-7: Checkout returns 201\n');
+  test('mix with heading-form criteria in one document', () => {
+    const criteria = parseAcceptanceCriteriaFromText(
+      ['### AC-1: Heading form', 'body one', '', '- AC-2: Bullet form'].join('\n'),
+      'spec/PRD.md',
+    );
 
-    const entries = parseTraceabilityMap(path);
-
-    assert.deepEqual(entries, [
-      {
-        ac_id: 'AC-7',
-        description: 'Checkout returns 201',
-        target_files: ['src/fixture-app/server.ts'],
-        associated_tests: ['tests/e2e/fixture.spec.ts'],
-      },
-    ]);
+    assert.deepEqual(
+      criteria.map((ac) => ac.id),
+      ['AC-1', 'AC-2'],
+    );
   });
 });

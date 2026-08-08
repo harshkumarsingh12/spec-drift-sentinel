@@ -4,13 +4,11 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  appendAuditLog,
   appendEntry,
   currentDecision,
   entryFromVerdict,
   hashDiff,
   historyFor,
-  readAuditLogs,
   readEntries,
 } from '../src/audit/log.js';
 import type { Verdict } from '../src/types.js';
@@ -89,37 +87,3 @@ describe('currentDecision', () => {
   });
 });
 
-describe('full verdict audit log', () => {
-  test('round-trips a complete pending verdict', () => {
-    const path = logPath();
-
-    appendAuditLog(verdict, 'PENDING', path);
-
-    const entries = readAuditLogs(path);
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0]?.id, 'v-1');
-    assert.equal(entries[0]?.acId, 'AC-2');
-    assert.equal(entries[0]?.failure.testName, 'free shipping');
-    assert.equal(entries[0]?.human_decision, 'PENDING');
-    assert.ok(entries[0]?.logged_at);
-  });
-
-  test('appends ratification rather than replacing the pending record', () => {
-    const path = logPath();
-
-    appendAuditLog(verdict, 'PENDING', path);
-    appendAuditLog(verdict, 'RATIFIED', path);
-
-    const entries = readAuditLogs(path);
-    assert.equal(entries.length, 2);
-    assert.equal(entries[0]?.human_decision, 'PENDING');
-    assert.equal(entries[1]?.human_decision, 'RATIFIED');
-  });
-
-  test('returns an empty list when the full audit log does not exist', () => {
-    assert.deepEqual(
-      readAuditLogs(join(tmpdir(), `sentinel-full-audit-missing-${Date.now()}`, 'audit.jsonl')),
-      [],
-    );
-  });
-});

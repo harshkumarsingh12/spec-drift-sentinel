@@ -24,16 +24,6 @@ const AC_HEADING = /^#{2,4}\s*(AC-\d+)\s*[::-]?\s*(.*)$/;
 const AC_BULLET = /^\s*[-*+]\s+(AC-\d+)\s*[::-]?\s*(.*)$/;
 const COVERS_ANNOTATION = /@covers\s+(AC-\d+)/g;
 
-const DEFAULT_TRACEABILITY_TARGET = 'src/fixture-app/server.ts';
-const DEFAULT_TRACEABILITY_TEST = 'tests/e2e/fixture.spec.ts';
-
-export interface TraceabilityEntry {
-  ac_id: string;
-  description: string;
-  target_files: string[];
-  associated_tests: string[];
-}
-
 /**
  * Parse acceptance criteria out of PRD markdown already in memory.
  *
@@ -149,21 +139,15 @@ export function affectedCriteria(
   );
 }
 
-/**
- * Lightweight fixture traceability map required by the hackathon demo.
+/*
+ * `parseTraceabilityMap` was removed here.
  *
- * This intentionally remains separate from `buildTraceability`, which performs
- * the repository-wide @covers analysis. A temporary or external PRD containing
- * AC-1 must not accidentally inherit unrelated AC-1 annotations elsewhere in
- * the repository.
+ * It mapped every acceptance criterion to the same two hardcoded paths
+ * regardless of content, and neither path existed in the repository. That is
+ * not traceability, it is a constant — and a tool whose entire purpose is
+ * detecting drift between spec and code cannot ship a function that fabricates
+ * its own coverage.
+ *
+ * `buildTraceability` above does the real thing: it scans for `@covers`
+ * annotations and reports honestly when a criterion is orphaned.
  */
-export function parseTraceabilityMap(
-  prdPath: string = resolve(process.cwd(), 'spec', 'PRD.md'),
-): TraceabilityEntry[] {
-  return parseAcceptanceCriteria(prdPath).map((ac) => ({
-    ac_id: ac.id,
-    description: ac.text || ac.title,
-    target_files: [DEFAULT_TRACEABILITY_TARGET],
-    associated_tests: [DEFAULT_TRACEABILITY_TEST],
-  }));
-}
