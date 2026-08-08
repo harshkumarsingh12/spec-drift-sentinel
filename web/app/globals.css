@@ -374,3 +374,121 @@ pre {
   width: 110px;
   text-align: right;
 }
+
+/* Timeline ---------------------------------------------------------------- */
+
+/*
+ * The continuous vertical line is a ::before pseudo-element on the wrapper.
+ * Each .timeline-item is a flex row: node on the left, card on the right.
+ * The node is absolutely positioned to sit centred on the line.
+ */
+
+.timeline-rail-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* The rail line — runs from top to bottom of the wrapper */
+.timeline-rail-wrap::before {
+  content: '';
+  position: absolute;
+  left: 15px; /* centre of the 32px node */
+  top: 16px;  /* start at the centre of the first node */
+  bottom: 16px;
+  width: 2px;
+  background: var(--border);
+  z-index: 0;
+}
+
+.timeline-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 20px;
+}
+
+.timeline-item[data-last] {
+  padding-bottom: 0;
+}
+
+/* Node circle */
+.timeline-node {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px; /* vertically align with the card header row */
+}
+
+.timeline-node.ok {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px var(--ok-bg);
+}
+
+.timeline-node.danger {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-bg);
+}
+
+.timeline-node.muted {
+  background: var(--panel-raised);
+  border: 2px solid var(--border);
+  color: var(--muted);
+}
+
+/* Card */
+.timeline-card {
+  flex: 1;
+  min-width: 0; /* allow text truncation inside flex */
+}
+
+.timeline-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.timeline-reasoning {
+  font-size: 13px;
+  margin: 10px 0 0;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+/* Footer row */
+.timeline-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 10px 0 0;
+  font-family: var(--mono);
+}
+
+.timeline-footer-sep {
+  margin: 0 2px;
+  color: var(--border);
+}
+
+/* Diff hash chip */
+.timeline-diff-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-radius: var(--radius);
+  font-size: 11px;
+}
+
