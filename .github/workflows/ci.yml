@@ -76,3 +76,44 @@ jobs:
           name: playwright-report
           path: web/playwright-report/
           retention-days: 7
+
+  deploy:
+    name: Deploy to Render
+    needs: [verify, e2e]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      # render.yaml defines the service; this triggers a rebuild+redeploy of
+      # the service already provisioned from it. One-time setup on render.com
+      # ("New" -> "Blueprint", connect this repo) and the RENDER_DEPLOY_HOOK_URL
+      # secret are required — see README's Deployment section.
+      - name: Trigger Render deploy
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not set — skipping deploy."
+            echo "See README.md's Deployment section to configure it."
+            exit 0
+          fi
+          curl -fsS -X POST "$DEPLOY_HOOK"
+
+  release:
+    name: Create GitHub release
+    needs: [verify, e2e]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            Live dashboard (once Render deploy finishes, see the `deploy` job):
+            https://spec-drift-sentinel.onrender.com
+
+            Local setup: see README.md and CONTRIBUTING.md.

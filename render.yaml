@@ -1,0 +1,28 @@
+# Render Blueprint — one-time setup: on render.com, "New" -> "Blueprint",
+# connect this repo, and Render provisions the service below from this file.
+#
+# Runs as a persistent Node container (not a serverless function), which
+# matters here: the dashboard reads .sentinel/audit.jsonl and spec/PRD.md
+# from disk at request time, and Approve/Reject write back to that same file
+# (appendFileSync). A stateless/serverless platform's read-only filesystem
+# would silently break the ratification flow — see README's Deployment section.
+#
+# Writes persist for the life of a running instance but are wiped on the next
+# deploy (no persistent disk attached). Acceptable for a demo site: the build
+# step reseeds realistic content every deploy via scripts/seed-audit-log.mjs.
+services:
+  - type: web
+    name: spec-drift-sentinel
+    runtime: node
+    plan: free
+    buildCommand: >-
+      npm install &&
+      npm run build &&
+      cd web &&
+      npm install &&
+      npm run seed &&
+      npm run build
+    startCommand: cd web && npm run start -- -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0

@@ -258,6 +258,41 @@ npm run test:e2e                # 7 specs — these are what you break in the de
 an authorised change still needs a human to ratify it before the build can be green —
 nothing has been applied yet.
 
+## Deployment
+
+The dashboard is **not static** — it reads `.sentinel/audit.jsonl` and `spec/PRD.md` from
+disk at request time, and Approve/Reject write back to that same file. A static host
+(GitHub Pages) or a serverless platform with a read-only filesystem (Vercel's production
+functions) would silently break the ratification flow — writes would just fail. It has to
+run as a normal, persistent Node process.
+
+**Render** does that, on a free tier, so that's the target. [`render.yaml`](render.yaml) is
+a Blueprint describing the service: it builds the root backend, seeds real demo content
+through the actual `runClassify` pipeline (deterministic, no network — see
+[`web/scripts/seed-audit-log.mjs`](web/scripts/seed-audit-log.mjs)), builds the dashboard,
+and starts it bound to Render's `$PORT`.
+
+### One-time setup (do this once, by hand — an Action can't create the account for you)
+
+1. Create a [Render](https://render.com) account (free).
+2. Dashboard → **New** → **Blueprint** → connect this GitHub repo. Render reads
+   `render.yaml` and provisions the `spec-drift-sentinel` web service automatically.
+3. Once created, open the service → **Settings** → **Deploy Hook**, copy the URL.
+4. In this GitHub repo: **Settings** → **Secrets and variables** → **Actions** → **New
+   repository secret** → name it `RENDER_DEPLOY_HOOK_URL`, paste the URL.
+
+### After that, it's automatic
+
+Pushing a tag matching `v*` (e.g. `git tag v1.0.0 && git push origin v1.0.0`) runs CI
+(`.github/workflows/ci.yml`) and, once `verify` and `e2e` both pass:
+
+- **`deploy`** — POSTs the Render deploy hook, triggering a fresh build and rollout.
+- **`release`** — creates a GitHub Release for the tag with auto-generated notes.
+
+Writes made through the live dashboard persist for the life of that deploy, but are wiped
+on the next redeploy (no persistent disk attached) — acceptable for a demo site, since the
+build step reseeds realistic content every time anyway.
+
 ## Project structure
 
 ```
@@ -328,7 +363,7 @@ Miss any one and the submission never reaches a scorer.
 - [x] Code-quality configuration — ESLint, enforced by a pre-commit hook and in CI
 - [ ] Clean, progressive commit history *(ongoing — commit continuously)*
 - [x] Task breakdown — [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md)
-- [ ] Tagged release with semantic versioning
+- [x] Tagged release with semantic versioning — `v1.0.0`, published automatically on tag push
 
 ### Build checklist
 
@@ -348,7 +383,7 @@ Miss any one and the submission never reaches a scorer.
 - [x] Dashboard: audit timeline built out (reads every real row, oldest to newest)
 - [ ] `sentinel diff` — git diff → affected criteria
 - [ ] Fix the `@covers` false positive (matches ids inside string literals)
-- [ ] Tag `v1.0.0`
+- [x] Tag `v1.0.0` — triggers `deploy` + `release` in CI (see Deployment above)
 - [ ] ~3 minute demo video recorded
 
 ### Definition of done — before opening a PR
