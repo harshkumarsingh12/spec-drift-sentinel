@@ -450,7 +450,8 @@ Miss any one and the submission never reaches a scorer.
 - [x] Dashboard: audit timeline built out (reads every real row, oldest to newest)
 - [x] `sentinel diff` — git diff → affected criteria (`src/analyzers/traceability.ts`'s
       `changedFilesFromDiff` + `affectedCriteria`, wired into the CLI)
-- [ ] Fix the `@covers` false positive (matches ids inside string literals)
+- [x] Fix the `@covers` false positive (matches ids inside string literals) — see Known
+      limitations
 - [x] Tag `v1.0.0` — triggers `deploy` + `release` in CI (see Deployment above)
 - [ ] ~3 minute demo video recorded
 
@@ -557,7 +558,15 @@ House rules, in short:
 
 ## Known limitations
 
-- The `@covers AC-n` scanner matches annotations inside string literals, so a test file that
-  mentions an id in its fixtures is wrongly credited with covering it.
 - `trace` is report-only by default; run with `--strict` once every criterion is expected to
   be covered.
+
+Fixed since first written up, kept as a record of what "known limitations" meant at the time:
+
+- ~~The `@covers AC-n` scanner matches annotations inside string literals, so a test file that
+  mentions an id in its fixtures is wrongly credited with covering it.~~ Fixed —
+  `extractComments()` in `src/analyzers/traceability.ts` (mirrored in `web/lib/data.ts`) now
+  scans only real `//` and `/* */` comments, not string or template literal contents. Caught a
+  genuine live instance of this bug in the project's own test suite: `tests/traceability.test.ts`
+  was crediting itself with covering AC-1 and AC-2 purely because a test fixture string quoted
+  `@covers AC-1`/`@covers AC-2` as example input.

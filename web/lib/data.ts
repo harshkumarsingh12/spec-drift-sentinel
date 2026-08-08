@@ -165,6 +165,61 @@ const SKIP_DIRECTORIES = new Set([
 ]);
 const COVERS_ANNOTATION = /@covers\s+(AC-\d+)/g;
 
+/**
+ * The comment text of a source file — mirrors `extractComments` in
+ * `src/analyzers/traceability.ts`. Duplicated for the same reason the types
+ * are: `web/` is a separate npm package. Keep both in sync — a `@covers`
+ * mentioned in a test fixture string must not register here either, or the
+ * dashboard's matrix would disagree with `sentinel trace`.
+ */
+function extractComments(source: string): string {
+  let out = '';
+  let i = 0;
+  const n = source.length;
+
+  while (i < n) {
+    const ch = source[i];
+    const next = source[i + 1];
+
+    if (ch === '/' && next === '/') {
+      const end = source.indexOf('\n', i);
+      const stop = end === -1 ? n : end;
+      out += source.slice(i, stop) + '\n';
+      i = stop;
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      const stop = end === -1 ? n : end + 2;
+      out += source.slice(i, stop) + '\n';
+      i = stop;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < n) {
+        if (source[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (source[i] === quote) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    i++;
+  }
+
+  return out;
+}
+
 function collectSourceFiles(root: string, dir: string = root): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -192,7 +247,7 @@ export function getTraceability(): TraceabilityRow[] {
   for (const file of collectSourceFiles(REPO_ROOT)) {
     const source = readFileSync(resolve(REPO_ROOT, file), 'utf8');
     const ids = new Set<string>();
-    for (const match of source.matchAll(COVERS_ANNOTATION)) {
+    for (const match of extractComments(source).matchAll(COVERS_ANNOTATION)) {
       if (match[1]) ids.add(match[1]);
     }
     for (const id of ids) {

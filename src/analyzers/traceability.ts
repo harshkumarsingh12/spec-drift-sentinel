@@ -15,14 +15,76 @@ import { collectSourceFiles } from './architecture.js';
  *
  *   - AC-3: Refunds under the auto-approve limit skip human review
  *
- * Code and tests claim coverage with a `@covers AC-3` annotation in a comment.
- * That annotation is the only link between spec and implementation, which keeps
- * the mapping explicit and greppable rather than inferred.
+ * Code and tests claim coverage with a `@covers` annotation naming the
+ * criterion id, e.g. `AC-3`, in a comment. That annotation is the only link
+ * between spec and implementation, which keeps the mapping explicit and
+ * greppable rather than inferred.
  */
 
 const AC_HEADING = /^#{2,4}\s*(AC-\d+)\s*[::-]?\s*(.*)$/;
 const AC_BULLET = /^\s*[-*+]\s+(AC-\d+)\s*[::-]?\s*(.*)$/;
 const COVERS_ANNOTATION = /@covers\s+(AC-\d+)/g;
+
+/**
+ * The comment text of a source file — `//` line comments and `/* … *\/`
+ * block comments (including `/**` JSDoc) — with string and template literal
+ * contents stripped out.
+ *
+ * `coveredIds` scans only this, not the raw source, so a `@covers AC-n`
+ * mentioned inside a test fixture string is not mistaken for a real
+ * annotation. Not a full parser — deliberately so: it tracks only quote and
+ * comment delimiters, which is enough to get comments-vs-strings right
+ * without a language toolchain dependency. It does not special-case regex
+ * literals; none of this codebase's regexes contain a `//` or `/*` run, so
+ * plain `/` characters inside them fall through as ordinary code untouched.
+ */
+export function extractComments(source: string): string {
+  let out = '';
+  let i = 0;
+  const n = source.length;
+
+  while (i < n) {
+    const ch = source[i];
+    const next = source[i + 1];
+
+    if (ch === '/' && next === '/') {
+      const end = source.indexOf('\n', i);
+      const stop = end === -1 ? n : end;
+      out += source.slice(i, stop) + '\n';
+      i = stop;
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      const stop = end === -1 ? n : end + 2;
+      out += source.slice(i, stop) + '\n';
+      i = stop;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
+      i++;
+      while (i < n) {
+        if (source[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (source[i] === quote) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    i++;
+  }
+
+  return out;
+}
 
 /**
  * Parse acceptance criteria out of PRD markdown already in memory.
@@ -75,10 +137,10 @@ export function parseAcceptanceCriteria(prdPath: string): AcceptanceCriterion[] 
   return parseAcceptanceCriteriaFromText(readFileSync(prdPath, 'utf8'), prdPath);
 }
 
-/** Every `@covers AC-n` annotation found in a file. */
+/** Every `@covers AC-n` annotation found in a file's comments — not its strings. */
 export function coveredIds(source: string): string[] {
   const ids = new Set<string>();
-  for (const match of source.matchAll(COVERS_ANNOTATION)) {
+  for (const match of extractComments(source).matchAll(COVERS_ANNOTATION)) {
     if (match[1]) ids.add(match[1]);
   }
   return [...ids];

@@ -8,6 +8,7 @@ import {
   buildTraceability,
   changedFilesFromDiff,
   coveredIds,
+  extractComments,
   parseAcceptanceCriteria,
   parseAcceptanceCriteriaFromText,
 } from '../src/analyzers/traceability.js';
@@ -62,6 +63,46 @@ describe('parseAcceptanceCriteria', () => {
   });
 });
 
+describe('extractComments', () => {
+  test('keeps line and block comment text, including JSDoc', () => {
+    const source = ['// a line comment', '/** a jsdoc comment */', '/* a block comment */'].join(
+      '\n',
+    );
+    const out = extractComments(source);
+    assert.match(out, /a line comment/);
+    assert.match(out, /a jsdoc comment/);
+    assert.match(out, /a block comment/);
+  });
+
+  test('drops the contents of string and template literals', () => {
+    const source = [
+      "const a = 'single quoted';",
+      'const b = "double quoted";',
+      'const c = `template ${x} literal`;',
+    ].join('\n');
+    const out = extractComments(source);
+    assert.doesNotMatch(out, /single quoted/);
+    assert.doesNotMatch(out, /double quoted/);
+    assert.doesNotMatch(out, /template/);
+  });
+
+  test('does not let an escaped quote end a string early', () => {
+    // If backslash escapes inside strings are not honoured, this reads as the
+    // string ending right after \', leaving the real trailing comment
+    // swallowed into a bogus, unterminated "string" starting at the next
+    // quote character — so its @covers annotation would go undetected.
+    const source = String.raw`const s = 'it\'s a trap'; // real comment @covers AC-5`;
+    assert.deepEqual(coveredIds(source), ['AC-5']);
+  });
+
+  test('a comment containing a quote character does not swallow real code as a string', () => {
+    const source = ["// don't break on this apostrophe", "const real = 'value';"].join('\n');
+    const out = extractComments(source);
+    assert.match(out, /apostrophe/);
+    assert.doesNotMatch(out, /value/);
+  });
+});
+
 describe('coveredIds', () => {
   test('finds annotations and de-duplicates them', () => {
     assert.deepEqual(coveredIds('/** @covers AC-1 */\n// @covers AC-1\n// @covers AC-2'), [
@@ -72,6 +113,24 @@ describe('coveredIds', () => {
 
   test('returns nothing when no annotation is present', () => {
     assert.deepEqual(coveredIds('const x = 1;'), []);
+  });
+
+  test('ignores @covers mentioned inside a string literal — not a real annotation', () => {
+    const source = "const fixture = 'reasoning text that happens to say @covers AC-1';";
+    assert.deepEqual(coveredIds(source), []);
+  });
+
+  test('ignores @covers inside a template literal fixture', () => {
+    const source = 'const msg = `verdict cited @covers AC-2 in its explanation`;';
+    assert.deepEqual(coveredIds(source), []);
+  });
+
+  test('still finds a real annotation alongside an unrelated string mention', () => {
+    const source = [
+      "const fixture = 'a test fixture mentioning @covers AC-9 as plain data';",
+      '/** @covers AC-1 */',
+    ].join('\n');
+    assert.deepEqual(coveredIds(source), ['AC-1']);
   });
 });
 
