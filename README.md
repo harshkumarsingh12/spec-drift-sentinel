@@ -4,6 +4,10 @@
 
 Built for **Deploy or Die** — HowToAlgo x GDG on Campus KIIT, Track B (Developer Productivity Tools).
 
+**🔗 Live dashboard: [spec-drift-sentinel.onrender.com](https://spec-drift-sentinel.onrender.com/)**
+— no install needed. Click through Inbox → a diff-viewer verdict → Matrix → Timeline. It's
+reading real, live-generated data (see [Deployment](#deployment)), not a static screenshot.
+
 ---
 
 ## The problem
@@ -171,12 +175,12 @@ so neither half of the team blocks the other.
 
 - [ ] **Node 22 or newer** — `node --test` needs glob support that Node 20 lacks
 - [ ] Git
-- [ ] A GitHub account with access to this repo
-- [ ] An [NVIDIA Build](https://build.nvidia.com) account → `nvapi-...` key *(save it immediately, it's shown once)*
+- [ ] An [NVIDIA Build](https://build.nvidia.com) account → `nvapi-...` key *(save it immediately, it's shown once)* — **only needed for `sentinel classify`**, the dashboard itself runs without one
 - [ ] A [Groq](https://console.groq.com) account → `gsk_...` key, as fallback
 
 > **Generate your own keys.** Free-tier limits are per account, so four members with four
-> keys is four times the capacity.
+> keys is four times the capacity. If you just want to see the dashboard, skip all of this
+> and use the [live deployment](https://spec-drift-sentinel.onrender.com/) instead.
 
 ### Setup
 
@@ -259,6 +263,8 @@ an authorised change still needs a human to ratify it before the build can be gr
 nothing has been applied yet.
 
 ## Deployment
+
+**Live: [spec-drift-sentinel.onrender.com](https://spec-drift-sentinel.onrender.com/)**
 
 The dashboard is **not static** — it reads `.sentinel/audit.jsonl` and `spec/PRD.md` from
 disk at request time, and Approve/Reject write back to that same file. A static host
@@ -440,69 +446,25 @@ Expect `intentional_change` citing AC-7, a proposed test diff carrying
 
 ---
 
-## Picking this up mid-build
+## Development history
 
-> **Update:** the section below documents the handoff point when the dashboard still read mock
-> data. That is no longer the case — `web/lib/data.ts` reads `.sentinel/audit.jsonl` and
-> `spec/PRD.md` directly, Approve/Reject write real ratifications through
-> `web/app/api/verdicts/[verdictId]/decision/route.ts`, and `web/scripts/seed-audit-log.mjs`
-> drives the real `runClassify` pipeline (scripted model, no network) so `npx playwright test`
-> has deterministic real content on a clean clone. Kept below as a record of where the build
-> stood at that point.
+Built in stages, backend first: the deterministic analyzer and the agent layer (classifier +
+proposer) landed and were rehearsed against a live model before the dashboard existed —
+`sentinel classify` could already run the whole pipeline and record genuine verdicts from a
+terminal. The dashboard then went from rendering `web/lib/mock-data.ts` fixtures to reading
+`.sentinel/audit.jsonl` and `spec/PRD.md` directly (`web/lib/data.ts`), with Approve/Reject
+wired to a real route handler and a deterministic seed script
+(`web/scripts/seed-audit-log.mjs`) providing realistic content on a clean clone without
+needing network access or API keys.
 
-**The backend and the demo fixture are done.** `sentinel classify` runs the whole pipeline end to
-end, 101 tests pass, CI is green, both LLM providers respond, and **both demo paths have been
-rehearsed against a live model** — a genuine bug comes back `regression`, a spec-authorised
-change comes back `intentional_change` with a proposed test diff.
+[`WEB.md`](WEB.md) and [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md) are kept as the original
+per-view specs and team plan — useful for how decisions were made, not current status
+(README and [`ARCHITECTURE.md`](ARCHITECTURE.md) are canonical for that).
 
-**What remained was the dashboard.** The product worked and could be demonstrated from a
-terminal; what it could not yet do was let a human ratify anything through the UI.
-
-| Blocker (resolved) | Owner | Why it mattered |
-|---|---|---|
-| Approve / Reject did nothing | C | The ratification gate is the product's entire argument. The demo had to stop at the terminal. |
-| Dashboard showed mock data | C + D | Judges would see fixtures, not the real verdicts the CLI just produced. |
-| Matrix and timeline were stubs | D | Both rendered; neither read real coverage or the real log. |
-
-> **There is real data waiting for you.** Running the demo script writes genuine verdicts to
-> `.sentinel/audit.jsonl`. Point the dashboard at that file and you have real content to build
-> against — no need to invent any.
-
-### If you are Person C
-
-Own `/inbox` and `/inbox/[verdictId]`. The inbox is already built out — **copy it as your
-pattern**. The diff viewer renders but its buttons are stubs; wiring them is the single highest
-value frontend task in the repo.
-
-Keep Approve and Reject visually identical. There is a comment in `web/app/globals.css`
-explaining why — styling Approve as the default nudges reviewers into rubber-stamping, which is
-the exact behaviour this product exists to prevent. It is not a bug.
-
-### If you are Person D
-
-Own `/matrix` and `/timeline`. Both render but are deliberately plain — build them out.
-
-`fixture-app` is **already built** and both demo paths are rehearsed, so that is off your plate.
-If you do touch it, keep it small — plain Node HTTP, no framework, no database. It is a stage
-prop, and time spent polishing it buys nothing.
-
-### Read first
-
-[`WEB.md`](WEB.md) is the plan of record for the dashboard: per-view specs, a mockup of the diff
-viewer, the ownership split, a ranked list of what to cut when time runs short, and the
-`data-testid` hooks Playwright depends on.
-
-Then [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, path ownership and the PR flow.
-
-### Three things that will save you time
-
-- **Build against mocks.** `web/lib/mock-data.ts` covers every state — a proposal with a diff, a
-  regression with none, a low-confidence verdict. Do not wait on the backend.
-- **`src/types.ts` is frozen.** It is the contract between backend and dashboard. Say so in the
-  group chat before changing it.
-- **Grep before you add a function.** Four PRs so far have added code beside code that already
-  did the job — a duplicate LLM client, a duplicate spec parser, a second audit log, a
-  traceability map that returned hardcoded paths. Each cost a cleanup PR.
+One design note worth calling out on its own: Approve and Reject are styled **identically on
+purpose** (see the comment in `web/app/globals.css`) — making Approve the visually obvious
+default would nudge reviewers into rubber-stamping, which is the exact failure mode this
+product exists to prevent.
 
 ---
 
