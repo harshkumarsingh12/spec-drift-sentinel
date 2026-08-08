@@ -129,15 +129,22 @@ Types you will use: `Verdict`, `AuditEntry`, `TraceabilityRow`, `AcceptanceCrite
 **Do not wait for the backend.** Build every view against these, and swap the data source
 later. The mocks are shaped exactly like the real thing.
 
-### Wiring to real data, later
+### Wiring to real data
 
-Two options, decide when the backend is ready:
+**The backend is ready now** — `sentinel classify` writes real verdicts to
+`.sentinel/audit.jsonl` at the repo root. Generate some by running it, then point the views at
+the file.
 
-1. **Read the JSONL directly** in a server component — simplest, no API layer. The audit log
-   is at `.sentinel/audit.jsonl`.
+Two options:
+
+1. **Read the JSONL directly** in a server component — simplest, no API layer.
 2. **Route handlers** under `web/app/api/` calling into the analyzers.
 
 Start with option 1. It is less code and the dashboard runs locally anyway.
+
+Do this **after** the views work against mocks, not instead of. Mocks cover states real data
+may not have yet — a low-confidence verdict, an orphaned criterion — and the views still have
+to handle those.
 
 ## 5. Routes
 
@@ -166,21 +173,71 @@ Start with option 1. It is less code and the dashboard runs locally anyway.
 cd web
 npm install
 npm run dev        # http://localhost:3000
+npm run test:e2e   # 18 Playwright specs — keep these green
 ```
 
 The shell already renders: layout, navigation, an overview page, and a working `/inbox`
 against mock data. **Copy the inbox page as your pattern** — it shows how to read mocks,
 type things, and lay out a view.
 
+### Current state of each view
+
+| Route | State | Owner |
+|---|---|---|
+| `/` | Done — overview with live counts | — |
+| `/inbox` | **Done — use as the reference pattern** | C |
+| `/inbox/[verdictId]` | Renders; **Approve / Reject are stubs** | C |
+| `/matrix` | Working stub, deliberately plain | D |
+| `/timeline` | Working stub, deliberately plain | D |
+
+**18 Playwright specs already run against these views.** They assert real behaviour — that a
+regression offers no approve button, that the criterion is quoted in full, that Approve and
+Reject have equal width. Keep them green; if you change markup, update the specs rather than
+deleting the assertion.
+
 ## 8. Division of work
 
 | | Person C | Person D |
 |---|---|---|
-| Owns | `/inbox`, `/inbox/[verdictId]` | `/matrix`, `/timeline` |
-| Priority | Diff viewer first — it is the demo | Matrix first — it is the most visual |
+| Owns | `/inbox`, `/inbox/[verdictId]` | `/matrix`, `/timeline`, **`fixture-app/`** |
+| Priority | **Wire Approve / Reject** — nothing else comes close | **`fixture-app` first** — the demo does not exist without it |
 | Shared | `app/globals.css`, `lib/` — coordinate before editing |
 
 Agree who touches `globals.css` before you both do. It is the one file you will conflict on.
+
+### 8.1 `fixture-app` — Person D, highest priority
+
+**What it is:** a deliberately tiny throwaway app whose only purpose is to be broken on
+purpose during the demo. It lives at `fixture-app/` **in this repo**, not a separate one.
+
+**Why we need it:** our product diagnoses failing tests. To demo that, we need something whose
+tests can fail. The demo is:
+
+1. Break an endpoint → the tool says *"regression — fix your code"*
+2. Change the spec **and** the code together → the tool says *"intentional change — here is an
+   updated test"*
+
+Same tool, opposite answers. That contrast **is** the demo, and right now there is nothing to
+break.
+
+**Shape:**
+
+```
+fixture-app/
+  package.json
+  server.ts             three endpoints
+  public/index.html     one screen
+  e2e/fixture.spec.ts   a few Playwright tests
+```
+
+**Keep it tiny.** A plain Node HTTP server is enough — no framework, no database, minimal
+dependencies. It is a stage prop. Every minute spent making it nice is a minute not spent on
+the demo, and judges are not scoring it.
+
+**Design it around one rule you can point at in the spec.** For example a shipping-fee
+threshold: an endpoint returns a fee that depends on a number the PRD states. Breaking the
+endpoint gives you path 1; changing the threshold in both `spec/PRD.md` and the code gives you
+path 2. One rule, both demo paths.
 
 ## 9. Definition of done, per view
 

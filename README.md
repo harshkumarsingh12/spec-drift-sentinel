@@ -197,7 +197,7 @@ each person's keys stay on their own machine.
 
 - [ ] `node --version` reports 22 or higher
 - [ ] `npm install` completed without errors
-- [ ] `npm test` is green — 47 tests passing
+- [ ] `npm test` is green — 92 tests passing
 - [ ] `.env` populated with **your own** keys
 - [ ] `npm run check:providers` reports 2 working
 - [ ] `npm run sentinel -- arch` runs and passes
@@ -304,7 +304,7 @@ Miss any one and the submission never reaches a scorer.
 
 - [x] **Architecture document** — [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - [x] **Agent rules** — [`AGENTS.md`](AGENTS.md)
-- [x] **Working code** — builds, runs, 47 tests passing
+- [x] **Working code** — builds, runs, 92 tests passing
 - [x] **One custom agent + one custom skill** — documented in [`AGENTS_AND_SKILLS.md`](AGENTS_AND_SKILLS.md)
 - [x] **Green CI/CD pipeline** — GitHub Actions, most recent run passing
 
@@ -323,13 +323,17 @@ Miss any one and the submission never reaches a scorer.
 - [x] Shared type contract frozen (`src/types.ts`)
 - [x] Deterministic analyzer working end to end
 - [x] Append-only audit log
-- [ ] Fixture app + its Playwright tests running in CI
 - [x] Classifier producing verdicts from real Playwright output — `sentinel classify`
 - [x] Proposer drafting test updates, recorded but never applied
-- [ ] Dashboard: drift inbox
-- [ ] Dashboard: diff viewer with approve / reject
-- [ ] Dashboard: traceability matrix
-- [ ] Dashboard: audit timeline
+- [x] Dashboard: drift inbox
+- [x] Dashboard: diff viewer — renders; approve / reject still to wire up
+- [ ] **`fixture-app` + its Playwright tests in CI** — does not exist yet
+- [ ] **Dashboard: approve / reject actually working**
+- [ ] **Dashboard reading the real `.sentinel/audit.jsonl` instead of mocks**
+- [ ] Dashboard: traceability matrix built out (currently a stub)
+- [ ] Dashboard: audit timeline built out (currently a stub)
+- [ ] `sentinel diff` — git diff → affected criteria
+- [ ] Fix the `@covers` false positive (matches ids inside string literals)
 - [ ] Tag `v1.0.0`
 - [ ] ~3 minute demo video recorded
 
@@ -349,6 +353,61 @@ Miss any one and the submission never reaches a scorer.
 - [ ] **Intentional change** — edit an AC *and* the matching code. Verdict `intentional_change`, diff proposed in the inbox citing the AC, not applied.
 - [ ] **Ratify** — approve in the dashboard, test updates, CI green, both decisions visible in the timeline.
 - [ ] **Deterministic** — add an illegal import. Fails with no LLM involved.
+
+---
+
+## Picking this up mid-build
+
+**The backend is done.** `sentinel classify` runs the whole pipeline end to end, 92 tests pass,
+CI is green, and both LLM providers respond. **Everything remaining is the demo surface** — the
+product works, but nobody can watch it work yet.
+
+Three things block a live demo:
+
+| Blocker | Owner | Why it matters |
+|---|---|---|
+| **`fixture-app` doesn't exist** | D | The demo's first step is "break an endpoint". There is no endpoint to break. |
+| **Approve / Reject do nothing** | C | The ratification gate is the product's entire argument. |
+| **Dashboard shows mock data** | C + D | Judges would be looking at fixtures, not real verdicts. |
+
+### If you are Person C
+
+Own `/inbox` and `/inbox/[verdictId]`. The inbox is already built out — **copy it as your
+pattern**. The diff viewer renders but its buttons are stubs; wiring them is the single highest
+value frontend task in the repo.
+
+Keep Approve and Reject visually identical. There is a comment in `web/app/globals.css`
+explaining why — styling Approve as the default nudges reviewers into rubber-stamping, which is
+the exact behaviour this product exists to prevent. It is not a bug.
+
+### If you are Person D
+
+Own `/matrix`, `/timeline`, and **`fixture-app`**.
+
+`fixture-app` is a deliberately tiny throwaway app whose only job is to be broken on purpose:
+three endpoints, one screen, a few Playwright tests, living at `fixture-app/` in this repo — not
+a separate one. Our product diagnoses failing tests, so we need something whose tests can fail.
+
+Keep it small. A plain Node HTTP server is enough — no framework, no database. It is a stage
+prop, and time spent polishing it buys nothing.
+
+### Read first
+
+[`WEB.md`](WEB.md) is the plan of record for the dashboard: per-view specs, a mockup of the diff
+viewer, the ownership split, a ranked list of what to cut when time runs short, and the
+`data-testid` hooks Playwright depends on.
+
+Then [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, path ownership and the PR flow.
+
+### Three things that will save you time
+
+- **Build against mocks.** `web/lib/mock-data.ts` covers every state — a proposal with a diff, a
+  regression with none, a low-confidence verdict. Do not wait on the backend.
+- **`src/types.ts` is frozen.** It is the contract between backend and dashboard. Say so in the
+  group chat before changing it.
+- **Grep before you add a function.** Four PRs so far have added code beside code that already
+  did the job — a duplicate LLM client, a duplicate spec parser, a second audit log, a
+  traceability map that returned hardcoded paths. Each cost a cleanup PR.
 
 ---
 
