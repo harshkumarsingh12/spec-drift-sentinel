@@ -1,6 +1,10 @@
 import React from 'react';
-import { mockTraceability } from '@/lib/mock-data';
+import { getTraceability } from '@/lib/data';
 import type { TraceabilityRow } from '@/lib/types';
+
+// Scans spec/PRD.md and the repo tree at request time — must not be
+// prerendered, or coverage changes would not appear until the next build.
+export const dynamic = 'force-dynamic';
 
 /**
  * Traceability matrix — Person D.
@@ -33,9 +37,10 @@ function StatusBadge({ status }: { status: TraceabilityRow['status'] }) {
 }
 
 export default function MatrixPage() {
-  const covered  = mockTraceability.filter((r) => r.status === 'covered').length;
-  const untested = mockTraceability.filter((r) => r.status === 'untested').length;
-  const orphaned = mockTraceability.filter((r) => r.status === 'orphaned').length;
+  const traceability = getTraceability();
+  const covered  = traceability.filter((r) => r.status === 'covered').length;
+  const untested = traceability.filter((r) => r.status === 'untested').length;
+  const orphaned = traceability.filter((r) => r.status === 'orphaned').length;
 
   return (
     <div className="stack">
@@ -75,7 +80,7 @@ export default function MatrixPage() {
             </tr>
           </thead>
           <tbody>
-            {mockTraceability.map((row) => {
+            {traceability.map((row) => {
               const { text, nothing } = coveredByText(row);
               return (
                 <tr key={row.acId} data-testid="matrix-row">

@@ -63,10 +63,16 @@ export interface AuditEntry {
   verdictId: string;
   acId: string | null;
   kind: VerdictKind;
+  /** 0..1. Carried through so the dashboard can surface low-confidence verdicts. */
+  confidence: number;
   reasoning: string;
+  /** What broke. Carried through so the dashboard never has to invent it. */
+  failure: TestFailure;
   model: string;
-  /** Short sha256 of the proposed diff, so the log stays compact but verifiable. */
+  /** Short sha256 of the proposed diff, so the log stays verifiable even if the full text is stripped. */
   proposedDiffHash: string | null;
+  /** Full diff text, or null. The only place this is persisted — the dashboard reads it from here. */
+  proposedDiff: string | null;
   humanDecision: HumanDecision;
   /** Who ratified it. null while pending. */
   decidedBy: string | null;

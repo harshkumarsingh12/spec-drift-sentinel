@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { findCriterion, findVerdict } from '@/lib/mock-data';
+import { findCriterion, findVerdict } from '@/lib/data';
 import DecisionButtons from './DecisionButtons';
 
 /**

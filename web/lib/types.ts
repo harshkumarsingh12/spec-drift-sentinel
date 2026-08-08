@@ -43,9 +43,12 @@ export interface AuditEntry {
   verdictId: string;
   acId: string | null;
   kind: VerdictKind;
+  confidence: number;
   reasoning: string;
+  failure: TestFailure;
   model: string;
   proposedDiffHash: string | null;
+  proposedDiff: string | null;
   humanDecision: HumanDecision;
   decidedBy: string | null;
   timestamp: string;

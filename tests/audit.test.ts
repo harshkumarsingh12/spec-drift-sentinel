@@ -57,6 +57,16 @@ describe('append and read', () => {
     assert.equal(entries[0]?.proposedDiffHash, hashDiff(verdict.proposedDiff));
   });
 
+  test('carries confidence, the failing test and the full diff — a dashboard reading the log needs all three (AC-5)', () => {
+    const path = logPath();
+    appendEntry(entryFromVerdict(verdict), path);
+
+    const entries = readEntries(path);
+    assert.equal(entries[0]?.confidence, verdict.confidence);
+    assert.deepEqual(entries[0]?.failure, verdict.failure);
+    assert.equal(entries[0]?.proposedDiff, verdict.proposedDiff);
+  });
+
   test('returns an empty list when the log does not exist yet', () => {
     assert.deepEqual(readEntries(join(tmpdir(), 'sentinel-does-not-exist', 'audit.jsonl')), []);
   });
