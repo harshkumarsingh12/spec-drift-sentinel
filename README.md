@@ -260,7 +260,7 @@ each person's keys stay on their own machine.
 
 - [ ] `node --version` reports 22 or higher
 - [ ] `npm install` completed without errors
-- [ ] `npm test` is green — 101 tests passing
+- [ ] `npm test` is green — 107 tests passing
 - [ ] `.env` populated with **your own** keys
 - [ ] `npm run check:providers` reports 2 working
 - [ ] `npm run sentinel -- arch` runs and passes
@@ -419,7 +419,7 @@ Miss any one and the submission never reaches a scorer.
 
 - [x] **Architecture document** — [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - [x] **Agent rules** — [`AGENTS.md`](AGENTS.md)
-- [x] **Working code** — builds, runs, 101 tests passing
+- [x] **Working code** — builds, runs, 107 tests passing
 - [x] **One custom agent + one custom skill** — documented in [`AGENTS_AND_SKILLS.md`](AGENTS_AND_SKILLS.md)
 - [x] **Green CI/CD pipeline** — GitHub Actions, most recent run passing
 
