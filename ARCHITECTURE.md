@@ -75,7 +75,7 @@ dashboard. The frontend builds against mocks shaped like these while the backend
 | `AcceptanceCriterion` | An `AC-n` parsed from `spec/PRD.md`, with its prose and source line |
 | `TestFailure` | A failing test normalised from the runner's report |
 | `Verdict` | Classification outcome: kind, cited AC, confidence, reasoning, optional proposed diff |
-| `AuditEntry` | One append-only row: verdict, decision, ratifier, diff hash, timestamp |
+| `AuditEntry` | One append-only row: verdict, cited AC, confidence, the failing test, model, diff hash, the full proposed diff, human decision, ratifier, timestamp |
 | `DependencyRule` / `ArchitectureViolation` | Declared boundary and a concrete breach of it |
 | `TraceabilityRow` | An AC with the code and tests claiming to cover it |
 

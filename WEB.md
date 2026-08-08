@@ -116,35 +116,23 @@ reconstruct exactly what happened and who signed off on each change. Make it ski
 
 Types you will use: `Verdict`, `AuditEntry`, `TraceabilityRow`, `AcceptanceCriterion`.
 
-### Build against mocks first
+### Build against mocks first *(historical — done, mocks removed)*
 
-`web/lib/mock-data.ts` has realistic fixtures covering every state you need:
+This section originally pointed at `web/lib/mock-data.ts` as realistic fixtures to build
+every view against before the backend was ready. That file no longer exists — see below.
 
-- an `intentional_change` with a proposed diff and a cited AC
-- a `regression` with no diff (verify your UI handles the absence)
-- a low-confidence verdict (make sure the warning shows)
-- criteria in all three coverage states
-- audit entries both pending and ratified
+### Wiring to real data — done
 
-**Do not wait for the backend.** Build every view against these, and swap the data source
-later. The mocks are shaped exactly like the real thing.
+Every view now reads real data via `web/lib/data.ts` (option 1 below, as recommended): it
+reads `.sentinel/audit.jsonl` and `spec/PRD.md` directly in server components, no API layer
+needed for reads. Approve/Reject go through a route handler
+(`web/app/api/verdicts/[verdictId]/decision/route.ts`) since they need to *write*.
 
-### Wiring to real data
-
-**The backend is ready now** — `sentinel classify` writes real verdicts to
-`.sentinel/audit.jsonl` at the repo root. Generate some by running it, then point the views at
-the file.
-
-Two options:
-
-1. **Read the JSONL directly** in a server component — simplest, no API layer.
-2. **Route handlers** under `web/app/api/` calling into the analyzers.
-
-Start with option 1. It is less code and the dashboard runs locally anyway.
-
-Do this **after** the views work against mocks, not instead of. Mocks cover states real data
-may not have yet — a low-confidence verdict, an orphaned criterion — and the views still have
-to handle those.
+For realistic content on a clean clone (a low-confidence verdict, a mix of pending/approved/
+rejected) without depending on network or API keys, `web/scripts/seed-audit-log.mjs` drives
+the actual `runClassify` pipeline with a scripted model response — the same determinism
+trick `tests/classify-command.test.ts` uses. Playwright's `webServer` runs it automatically;
+run it by hand with `npm run seed` (from `web/`).
 
 ## 5. Routes
 
@@ -165,7 +153,9 @@ to handle those.
 - Design tokens are already defined — `--bg`, `--panel`, `--text`, `--muted`, `--ok`,
   `--warn`, `--danger`, `--border`. Use them rather than hard-coded hex, so the four views
   look like one product.
-- Dark theme. It is a developer tool and it demos better in a dim room.
+- ~~Dark theme. It is a developer tool and it demos better in a dim room.~~ **Superseded.**
+  The dashboard shipped with a light, card-based theme instead — a deliberate later call,
+  not a reversion to this. See `app/globals.css`'s design-token comments.
 
 ## 7. Getting started
 
@@ -176,17 +166,17 @@ npm run dev        # http://localhost:3000
 npm run test:e2e   # 18 Playwright specs — keep these green
 ```
 
-The shell already renders: layout, navigation, an overview page, and a working `/inbox`
-against mock data. **Copy the inbox page as your pattern** — it shows how to read mocks,
-type things, and lay out a view.
+**Update — all four views are done and read real data.** `web/lib/data.ts` reads
+`.sentinel/audit.jsonl` and `spec/PRD.md` directly; there is no `mock-data.ts` any more. The
+table below is kept as a record of the build sequence, not current status.
 
-### Current state of each view
+### Original build sequence (historical)
 
-| Route | State | Owner |
+| Route | State at handoff | Owner |
 |---|---|---|
 | `/` | Done — overview with live counts | — |
-| `/inbox` | **Done — use as the reference pattern** | C |
-| `/inbox/[verdictId]` | Renders; **Approve / Reject are stubs** | C |
+| `/inbox` | Done — used as the reference pattern | C |
+| `/inbox/[verdictId]` | Rendered; Approve / Reject were stubs | C |
 | `/matrix` | Working stub, deliberately plain | D |
 | `/timeline` | Working stub, deliberately plain | D |
 
@@ -241,12 +231,12 @@ Breaking the fee gives you the regression path. Changing the threshold in **both
 
 ## 9. Definition of done, per view
 
-- [ ] Renders correctly from `mock-data.ts` with no console errors
-- [ ] Handles the empty state deliberately
-- [ ] Handles the absent case — no proposed diff, no cited AC, no test files
-- [ ] Uses design tokens, not hard-coded colours
-- [ ] Readable at 1280px wide — that is the projector, not your laptop
-- [ ] Has a `data-testid` on the elements Playwright will need
+- [x] Renders correctly from real data (`web/lib/data.ts`) with no console errors
+- [x] Handles the empty state deliberately
+- [x] Handles the absent case — no proposed diff, no cited AC, no test files
+- [x] Uses design tokens, not hard-coded colours
+- [x] Readable at 1280px wide — that is the projector, not your laptop
+- [x] Has a `data-testid` on the elements Playwright will need
 
 ## 10. Playwright hooks
 
@@ -281,4 +271,6 @@ Ranked, so you know what to cut when time runs short:
 - No authentication. It is a local developer tool.
 - No database. The audit log is a file, and that is a feature — you can `cat` it on stage.
 - No mobile layout. Nobody reviews a code diff on a phone.
-- No dark/light toggle. Pick dark, ship it.
+- No dark/light toggle. One theme, ship it — the shipped theme is light, not the dark one
+  originally planned here (`app/globals.css`), but the "pick one, don't build a toggle"
+  reasoning still holds.
